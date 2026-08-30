@@ -177,10 +177,10 @@ ZEOS
 │   ├── Documentação
 │   └── Figma
 │
-├── 🧠 Dislexfy
+├── 🧠 Projeto
 │   ├── Pesquisa
 │   ├── Painel
-│   ├── Editais
+│ 
 │   └── Desenvolvimento
 │
 └── 🎵 Pessoal
