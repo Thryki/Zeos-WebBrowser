@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>configurações</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 7906 4095" aria-hidden="true">
+          <path d="M2329.41 0H3952.94V564.706H2894.12V1764.71H3952.94V2329.41H2894.12V3529.41H3952.94V4094.12H2329.41V3176.47V564.706V0Z" fill="currentColor"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M4305.88 4094.12H5576.47V3741.18H5929.41V352.941H5576.47V0H4305.88V352.941H3952.94V1764.71V2329.41V3741.18H4305.88V4094.12ZM5364.71 564.706V3529.41H4517.65V564.706H5364.71Z" fill="currentColor"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M7200 2117.65V1764.71H6847.06V1411.77H6494.12V564.707H7341.18V1270.59H7905.88V352.942H7552.94V0.000976562H6282.35V352.942L5929.41 352.941V1623.53H6282.35V1976.47H6635.29V2329.41H6988.24V2682.35H7341.18V3529.41H6494.12V2470.59H5929.41V3741.18L6282.35 3741.18V4094.12H7552.94V3741.18H7905.88V2470.59H7552.94V2117.65H7200Z" fill="currentColor"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0V917.647H564.706V564.706H1588.24V705.882H1411.76V1058.82H1235.29V1411.76H1058.82V1764.71H882.353V2117.65H705.882V2470.59H529.412V2823.53H352.941V3176.47H176.471V3529.41H0V4094.12H2329.41V3176.47H1764.71V3529.41H741.177V3388.24H917.647V3035.29H1094.12V2682.35H1270.59V2329.41H1447.06V1976.47H1623.53V1623.53H1800V1270.59H1976.47V917.647H2152.94V564.706H2329.41V0H0Z" fill="currentColor"/>
+        </svg>
+      </div>
+    </header>
+
+    <!-- SECTION: TEMA DA UI (PALETA DE CORES) -->
+    <section>
+      <div class="section-title">
+        <h1>Tema da UI</h1>
+        <p class="section-desc">Escolha a paleta usada em toda a interface do Zeos.</p>
+      </div>
+      <div id="themes-grid" class="themes-grid"></div>
+    </section>
+
+    <!-- SECTION: EXTENSÕES DO CHROME -->
+    <section>
+      <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1>Extensões do Google Chrome</h1>
+          <p class="section-desc">Carregue e gerencie extensões (Manifest V2 / V3) no Zeos WebBrowser.</p>
+        </div>
+        <button id="load-extension-btn" class="action-btn">＋ Carregar extensão descompactada</button>
+      </div>
+
+      <div id="extensions-list" class="extensions-grid"></div>
+      <div id="extensions-empty" class="extensions-empty" style="display: none;">
+        <p>Nenhuma extensão instalada.</p>
+        <small>Clique no botão acima para selecionar uma pasta de extensão descompactada (com manifest.json).</small>
+      </div>
+    </section>
+
+    <!-- SECTION: BARRA DE NAVEGAÇÃO & BOTÕES -->
+    <section>
+      <div class="section-title">
+        <h1>Barra de Navegação & Botões</h1>
+        <p class="section-desc">Ative ou desative os botões e indicadores exibidos na barra superior.</p>
+      </div>
+      <div class="checks-grid">
+        <label class="check-box">
+          <input id="btn-back" type="checkbox" />
+          <div class="check-content">
+            <strong>Botão Voltar (←)</strong>
+            <span>Navegar para a página anterior do histórico</span>
+          </div>
+        </label>
+        <label class="check-box">
+          <input id="btn-forward" type="checkbox" />
+          <div class="check-content">
+            <strong>Botão Avançar (→)</strong>
+            <span>Navegar para a próxima página do histórico</span>
+          </div>
+        </label>
+        <label class="check-box">
+          <input id="btn-reload" type="checkbox" />
+          <div class="check-content">
+            <strong>Botão Recarregar (↻)</strong>
+            <span>Atualizar ou interromper carregamento da página</span>
+          </div>
+        </label>
+        <label class="check-box">
+          <input id="btn-home" type="checkbox" />
+          <div class="check-content">
+            <strong>Botão Página Inicial (⌂)</strong>
+            <span>Ir direto para sua página inicial configurada</span>
+          </div>
+        </label>
+        <label class="check-box">
+          <input id="btn-show-cpu" type="checkbox" />
+          <div class="check-content">
+            <strong>Monitor de CPU</strong>
+            <span>Exibir medidor de porcentagem de CPU do Zeos</span>
+          </div>
+        </label>
+        <label class="check-box">
+          <input id="btn-show-ram" type="checkbox" />
+          <div class="check-content">
+            <strong>Monitor de Memória RAM</strong>
+            <span>Exibir medidor de consumo de memória RAM do Zeos</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="setting-item" style="margin-top: 16px;">
+        <label for="download-mode">Exibição do Botão de Downloads</label>
+        <select id="download-mode">
+          <option value="active-only">Apenas durante downloads ativos (Recomendado)</option>
+          <option value="always">Sempre visível na barra superior</option>
+          <option value="hidden">Ocultar sempre</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- SECTION: ZOOM DA INTERFACE -->
+    <section>
+      <div class="section-title">
+        <h1>Zoom da interface</h1>
+        <p class="section-desc">Aumente ou reduza o tamanho de toda a interface do navegador.</p>
+      </div>
+      <div class="zoom-controls">
+        <button id="zoom-out" class="zoom-btn" title="Diminuir zoom">−</button>
+        <div id="zoom-value" class="zoom-display">100%</div>
+        <button id="zoom-in" class="zoom-btn" title="Aumentar zoom">+</button>
+        <button id="zoom-reset" class="zoom-btn" title="Redefinir zoom">↺</button>
+      </div>
+    </section>
+
+    <!-- SECTION: CORES PERSONALIZADAS & FONTE -->
+    <section>
+      <div class="section-title">
+        <h1>Personalização Avançada</h1>
+        <p class="section-desc">Ajuste fino de cores manuais e tipografia.</p>
+      </div>
+      <div class="colors">
+        <label>Fundo <input id="background" type="color" /></label>
+        <label>Texto <input id="foreground" type="color" /></label>
+        <label>Destaque <input id="accent" type="color" /></label>
+      </div>
+      <label style="margin-top: 12px;">Fonte
+        <select id="font">
+          <option>IBM Plex Mono</option>
+          <option>Cascadia Mono</option>
+          <option>Consolas</option>
+          <option>JetBrains Mono</option>
+          <option>Courier New</option>
+        </select>
+      </label>
+    </section>
+
+    <!-- SECTION: GERAL -->
+    <section>
+      <div class="section-title">
+        <h1>Geral</h1>
+      </div>
+      <label>Página inicial <input id="initial-page" type="url" placeholder="https://..." /></label>
+      <label>Buscador padrão
+        <select id="search-provider">
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="google">Google</option>
+          <option value="bing">Bing</option>
+          <option value="brave">Brave Search</option>
+          <option value="ecosia">Ecosia</option>
+        </select>
+      </label>
+    </section>
+
+    <!-- SECTION: PRIVACIDADE -->
+    <section>
+      <div class="section-title">
+        <h1>Privacidade</h1>
+      </div>
+      <label class="check"><input id="notifications" type="checkbox" /> Permitir notificações de sites</label>
+      <label class="check"><input id="media" type="checkbox" /> Permitir câmera e microfone quando solicitados</label>
+      <div style="margin-top: 12px;">
+        <button id="clear-cookies" class="action-btn">Limpar cookies</button>
+      </div>
+    </section>
+
+    <!-- SECTION: HISTÓRICO -->
+    <section>
+      <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1>Histórico de Navegação</h1>
+          <p class="section-desc">Pesquise, filtre por período, acesse links ou gerencie seu histórico.</p>
+        </div>
+        <button id="open-clear-modal-btn" class="action-btn" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.35);">Limpar dados de navegação...</button>
+      </div>
+
+      <div class="history-controls">
+        <div class="history-search-box">
+          <input id="history-search" type="text" placeholder="Pesquisar por título ou URL..." />
+        </div>
+        <div class="history-filter-chips">
+          <button class="filter-chip active" data-filter="all">Tudo</button>
+          <button class="filter-chip" data-filter="1h">Última hora</button>
+          <button class="filter-chip" data-filter="24h">Hoje (24h)</button>
+          <button class="filter-chip" data-filter="7d">Últimos 7 dias</button>
+          <button class="filter-chip" data-filter="30d">Últimos 30 dias</button>
+        </div>
+      </div>
+
+      <ul id="history" class="history-list"></ul>
+    </section>
+  </main>
+
+  <!-- Modal de Limpeza de Dados de Navegação -->
+  <div id="clear-history-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Limpar dados de navegação</h2>
+        <button id="modal-close-btn" class="modal-close-icon" aria-label="Fechar">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <p class="modal-desc">Selecione o intervalo de tempo a ser removido:</p>
+        
+        <div class="modal-radio-group">
+          <label class="modal-radio-label">
+            <input type="radio" name="clear-time-range" value="1h" checked />
+            <span>Última hora</span>
+          </label>
+          <label class="modal-radio-label">
+            <input type="radio" name="clear-time-range" value="24h" />
+            <span>Últimas 24 horas</span>
+          </label>
+          <label class="modal-radio-label">
+            <input type="radio" name="clear-time-range" value="7d" />
+            <span>Últimos 7 dias</span>
+          </label>
+          <label class="modal-radio-label">
+            <input type="radio" name="clear-time-range" value="4w" />
+            <span>Últimas 4 semanas</span>
+          </label>
+          <label class="modal-radio-label">
+            <input type="radio" name="clear-time-range" value="all" />
+            <span>Todo o período</span>
+          </label>
+        </div>
+
+        <div id="clear-confirm-box" class="confirm-warning-box" style="display: none;">
+          ⚠️ <strong>Confirmar exclusão:</strong> Tem certeza que deseja apagar o histórico selecionado? Esta ação não pode ser desfeita.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modal-cancel-btn" class="action-btn">Cancelar</button>
+        <button id="modal-confirm-btn" class="action-btn danger-btn">Limpar dados</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

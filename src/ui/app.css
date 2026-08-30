@@ -1,0 +1,725 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0b0b;
+  --fg: #f5f5f5;
+  --accent: #22c55e;
+  --muted: #858585;
+  --panel: #181818;
+  --panel-hover: #242424;
+  --border: #2a2a2a;
+  --border-focus: rgba(34, 197, 94, 0.6);
+  font-family: "IBM Plex Mono", Consolas, "Cascadia Mono", monospace;
+  background: transparent;
+  color: var(--fg);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+button, input {
+  font: inherit;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#chrome {
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  z-index: 999;
+}
+
+/* Backdrop for closing popups when clicking outside */
+.downloads-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 998;
+}
+
+/* ==========================================================================
+   TOP HEADER / TABS BAR
+   ========================================================================== */
+#tabs-bar {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  gap: 4px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 1 auto;
+  max-width: calc(100% - 240px);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.header-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+  flex: 0 0 1px;
+}
+
+.tabs-spacer {
+  flex: 1 1 16px;
+  min-width: 16px;
+  height: 100%;
+  cursor: default;
+}
+
+/* Icon Buttons */
+.nav-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  opacity: 0.85;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  flex: 0 0 28px;
+}
+
+.nav-icon-btn:hover:not(:disabled) {
+  background: var(--panel-hover);
+  color: #ffffff;
+  opacity: 1;
+}
+
+.nav-icon-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.ui-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* ==========================================================================
+   TABS LIST & TAB CAPSULES
+   ========================================================================== */
+.tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px 0 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex: 1 1 180px;
+  max-width: 200px;
+  min-width: 36px;
+  position: relative;
+  user-select: none;
+}
+
+.tab:hover {
+  background: var(--panel-hover);
+  color: var(--fg);
+}
+
+.tab.active {
+  background: var(--panel);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.tab.dragging {
+  opacity: 0.35;
+  transform: scale(0.96);
+}
+
+.tab.drag-over {
+  border-left: 2px solid var(--accent);
+}
+
+.tab.drag-over-right {
+  border-right: 2px solid var(--accent);
+}
+
+/* Pinned tabs: small compact icon buttons */
+.tab.pinned {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.tab.pinned .tab-title,
+.tab.pinned .tab-close {
+  display: none !important;
+}
+
+.tab.pinned .tab-favicon {
+  margin: 0;
+}
+
+.tab-favicon {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+}
+
+.tab-favicon img {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: contain;
+}
+
+.tab-favicon svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  opacity: 0.7;
+}
+
+.tab.loading .tab-favicon {
+  animation: pulse 0.8s infinite alternate;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-weight: 500;
+  font-size: 11.5px;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+  opacity: 0;
+  margin-left: auto;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  flex: 0 0 16px;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  opacity: 0.65;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.new-tab-btn {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.tabs-overflow-btn {
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   SYSTEM STATS (ZEOS RESOURCE USAGE)
+   ========================================================================== */
+.stats-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.stat-pill:hover {
+  background: var(--panel-hover);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.stat-cpu .stat-icon {
+  color: var(--accent);
+  font-size: 9px;
+}
+
+.stat-cpu .stat-val {
+  color: var(--accent);
+}
+
+.stat-ram .stat-val {
+  color: #38bdf8;
+}
+
+/* ==========================================================================
+   WINDOW CONTROLS (MINIMIZE, MAXIMIZE/EXPAND, CLOSE)
+   ========================================================================== */
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.window-control-btn {
+  width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--fg);
+  opacity: 0.8;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.window-control-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.window-control-btn:hover {
+  background: var(--panel-hover);
+  color: #ffffff;
+  opacity: 1;
+}
+
+.window-control-btn.close-btn:hover {
+  background: #dc2626 !important;
+  color: #ffffff;
+  opacity: 1;
+}
+
+/* ==========================================================================
+   DOWNLOAD BUTTON
+   ========================================================================== */
+.download-btn {
+  position: relative;
+}
+
+.download-btn.has-active {
+  color: var(--accent);
+}
+
+.dl-progress-ring {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 28px;
+  height: 28px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  display: none;
+}
+
+.download-btn.has-active .dl-progress-ring {
+  display: block;
+}
+
+.dl-ring-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 30%, transparent);
+  stroke-width: 2.5;
+}
+
+.dl-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 69.115;
+  stroke-dashoffset: 69.115;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.download-badge {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 8.5px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 2;
+}
+
+/* ==========================================================================
+   OMNIBOX ROW (NAVIGATION BAR)
+   ========================================================================== */
+#omnibox-row {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--bg) 85%, var(--panel));
+  border-bottom: 1px solid var(--border);
+}
+
+.omnibox-container {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--bg) 60%, var(--panel));
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  padding: 0 10px;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.omnibox-search-icon {
+  width: 13px;
+  height: 13px;
+  fill: var(--muted);
+  flex: 0 0 13px;
+}
+
+.omnibox-container:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--bg) 50%, var(--panel));
+}
+
+.omnibox-container:focus-within .omnibox-search-icon {
+  fill: var(--accent);
+}
+
+#omnibox {
+  width: 100%;
+  height: 100%;
+  font-size: 12.5px;
+  color: #ffffff;
+  caret-color: var(--accent);
+}
+
+#omnibox::placeholder {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   EXTENSIONS TOOLBAR (RIGHT SIDE OF OMNIBOX)
+   ========================================================================== */
+.extensions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.extension-action-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.extension-action-btn:hover {
+  background: var(--panel-hover);
+  border-color: var(--border);
+}
+
+.extension-action-btn:active {
+  transform: scale(0.95);
+}
+
+.extension-action-btn img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 2px;
+  display: block;
+}
+
+.extension-fallback-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* ==========================================================================
+   DOWNLOADS POPUP PANEL
+   ========================================================================== */
+.downloads-panel {
+  position: absolute;
+  top: 38px;
+  right: 12px;
+  width: 360px;
+  max-height: 440px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--border);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dlFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dlFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dl-panel-header {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.dl-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.dl-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dl-header-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  font-size: 15px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dl-header-btn:hover {
+  background: var(--panel-hover);
+  color: #fff;
+}
+
+.dl-panel-list {
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.dl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dl-item:hover {
+  background: var(--panel-hover);
+}
+
+.dl-item-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.dl-item-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.dl-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dl-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-item-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.dl-item-progress-track {
+  width: 100%;
+  height: 3px;
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 2px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.dl-item-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.dl-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dl-btn-action {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.dl-btn-action:hover {
+  background: var(--panel-hover);
+  color: #fff;
+}
+
+.dl-panel-empty {
+  padding: 36px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.dl-panel-empty svg {
+  fill: var(--muted);
+  opacity: 0.6;
+}
+
+.dl-panel-empty p {
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   ANIMATIONS
+   ========================================================================== */
+@keyframes pulse {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}

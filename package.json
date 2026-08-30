@@ -1,0 +1,25 @@
+{
+  "name": "zeos-webbrowser",
+  "version": "1.0.0",
+  "description": "Ultra-lean, privacy-focused, tracker-free Chromium browser with minimal overhead and fluid performance.",
+  "main": "src/main.js",
+  "license": "MIT",
+  "keywords": [
+    "browser",
+    "webbrowser",
+    "minimalist",
+    "privacy",
+    "tracker-free",
+    "lightweight",
+    "electron",
+    "chromium"
+  ],
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/main.js && node --check src/navigation.js && node --check src/preload.js && node --check src/settings-preload.js && node --check src/ui/app.js && node --check src/settings/settings.js && node --check src/themes.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "^40.0.0"
+  }
+}
