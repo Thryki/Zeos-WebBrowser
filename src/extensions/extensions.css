@@ -8,7 +8,7 @@
   --muted: color-mix(in srgb, var(--fg) 60%, transparent);
   --danger: #ef4444;
   --danger-bg: rgba(239, 68, 68, 0.15);
-  font-family: "IBM Plex Mono", Consolas, "Cascadia Mono", monospace;
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
   color: var(--fg);
   background: var(--bg);
 }

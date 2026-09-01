@@ -13,7 +13,7 @@ const WORKSPACES_FILE = 'workspaces.json';
 const TAB_HEIGHT = 38;
 const ADDRESS_HEIGHT = 38;
 const DEFAULT_BOUNDS = { width: 1200, height: 760 };
-const FONTS = ['IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'Courier New'];
+const FONTS = ['IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New'];
 
 const DEFAULT_SETTINGS = {
   initialPage: HOME_URL,
@@ -1021,7 +1021,11 @@ class Browser {
       ...bounds,
       minWidth: 520,
       minHeight: 360,
-      frame: false,
+      // macOS keeps native traffic lights over the custom chrome; other
+      // platforms stay fully frameless with the HTML window controls.
+      ...(process.platform === 'darwin'
+        ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 10 } }
+        : { frame: false }),
       show: false,
       backgroundColor: settings.appearance.background || '#0b0b0b',
       icon: path.join(__dirname, 'assets', 'zeos-logo.png'),
@@ -1676,14 +1680,14 @@ class Browser {
         return;
       }
       const menuObj = Menu.buildFromTemplate([
-        { label: 'Nova aba', accelerator: 'Ctrl+T', click: () => this.createWebTab() },
-        { label: 'Nova janela', accelerator: 'Ctrl+N', click: () => new Browser(false, false) },
-        { label: 'Nova janela privada', accelerator: 'Ctrl+Shift+N', click: () => new Browser(true, false) },
+        { label: 'Nova aba', accelerator: 'CmdOrCtrl+T', click: () => this.createWebTab() },
+        { label: 'Nova janela', accelerator: 'CmdOrCtrl+N', click: () => new Browser(false, false) },
+        { label: 'Nova janela privada', accelerator: 'CmdOrCtrl+Shift+N', click: () => new Browser(true, false) },
         { type: 'separator' },
-        { label: 'Downloads', accelerator: 'Ctrl+J', click: () => this.chrome.webContents.send('browser:toggle-downloads') },
-        { label: 'Favoritos', accelerator: 'Ctrl+D', click: () => this.createSpecialTab('favorites') },
-        { label: 'Extensões', accelerator: 'Ctrl+Shift+E', click: () => this.createSpecialTab('extensions') },
-        { label: 'Configurações', accelerator: 'Ctrl+,', click: () => this.createSpecialTab('settings') },
+        { label: 'Downloads', accelerator: 'CmdOrCtrl+J', click: () => this.chrome.webContents.send('browser:toggle-downloads') },
+        { label: 'Favoritos', accelerator: 'CmdOrCtrl+D', click: () => this.createSpecialTab('favorites') },
+        { label: 'Extensões', accelerator: 'CmdOrCtrl+Shift+E', click: () => this.createSpecialTab('extensions') },
+        { label: 'Configurações', accelerator: 'CmdOrCtrl+,', click: () => this.createSpecialTab('settings') },
         { type: 'separator' },
         { label: 'Personalizar barra de navegação...', click: () => this.createSpecialTab('settings') },
         { type: 'separator' },
@@ -1717,14 +1721,14 @@ class Browser {
         { type: 'separator' },
         { label: isPinned ? 'Desafixar aba' : 'Fixar aba', click: () => this.togglePinTab(tab.id) },
         { label: 'Duplicar aba', click: () => this.duplicateTab(tab.id) },
-        { label: 'Recarregar', accelerator: 'Ctrl+R', click: () => tab.view.webContents.reload() },
+        { label: 'Recarregar', accelerator: 'CmdOrCtrl+R', click: () => tab.view.webContents.reload() },
         { type: 'separator' },
         { label: 'Mover para uma nova janela', enabled: hasOtherTabs, click: () => {
           const bounds = this.window.getBounds();
           this.tearOffTab(tab.id, bounds.x + 40, bounds.y + 40);
         }},
         { type: 'separator' },
-        { label: 'Fechar aba', accelerator: 'Ctrl+W', click: () => this.closeTab(tab.id) },
+        { label: 'Fechar aba', accelerator: 'CmdOrCtrl+W', click: () => this.closeTab(tab.id) },
         { label: 'Fechar outras abas', enabled: hasOtherTabs, click: () => this.closeOtherTabs(tab.id) },
         { label: 'Fechar abas à direita', enabled: hasTabsToRight, click: () => this.closeTabsToRight(tab.id) }
       ]).popup(options);
@@ -2223,8 +2227,32 @@ ipcMain.handle('tab:set-metrics', (_event, { tabId, cpu, memory }) => {
   return { success: false, error: 'Tab not found' };
 });
 
+if (process.platform === 'win32') app.setAppUserModelId('com.thryki.zeos');
+
+// A second instance would fight over session.json/settings.json; focus the
+// existing window instead.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const browser = browsers.values().next().value;
+    if (browser?.window && !browser.window.isDestroyed()) {
+      if (browser.window.isMinimized()) browser.window.restore();
+      browser.window.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   settings = loadSettings();
+  if (process.platform === 'darwin') {
+    // Without an application menu macOS loses Cmd+Q, Hide and copy/paste.
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      { role: 'appMenu' },
+      { role: 'editMenu' },
+      { role: 'windowMenu' }
+    ]));
+  }
   setupSession(session.defaultSession);
   await loadSavedExtensions();
   new Browser(false, true);

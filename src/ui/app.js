@@ -62,6 +62,10 @@ const CIRCUMFERENCE = 69.115; // 2 * PI * 11
 
 const command = (name, payload) => window.zeos.command(name, payload);
 
+if (navigator.platform.toLowerCase().includes('mac')) {
+  document.body.classList.add('platform-darwin');
+}
+
 function menu(name, event, extra = {}) {
   const point = event ? { x: event.clientX, y: event.clientY, ...extra } : { x: 200, y: 40, ...extra };
   window.zeos.showMenu(name, point);
@@ -93,7 +97,7 @@ function setTheme(a = {}) {
   root.setProperty('--panel', a.panel || '#181818');
   root.setProperty('--panel-hover', a.panelHover || '#242424');
   root.setProperty('--border', a.border || '#2a2a2a');
-  root.fontFamily = `"${a.font || 'IBM Plex Mono'}", Consolas, "Cascadia Mono", monospace`;
+  root.fontFamily = `"${a.font || 'IBM Plex Mono'}", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace`;
 }
 
 function formatBytes(bytes) {
@@ -768,6 +772,7 @@ new ResizeObserver(() => {
 // Global Keyboard Shortcuts
 window.addEventListener('keydown', (event) => {
   const key = event.key.toLowerCase();
+  const modKey = event.ctrlKey || event.metaKey;
 
   if (key === 'escape') {
     if (isPanelOpen()) {
@@ -785,77 +790,77 @@ window.addEventListener('keydown', (event) => {
     }
   }
 
-  if (event.ctrlKey && key === 'l') {
+  if (modKey && key === 'l') {
     event.preventDefault();
     focusAddress();
   }
 
-  if (event.ctrlKey && key === 't') {
+  if (modKey && key === 't') {
     event.preventDefault();
     command('new-tab');
   }
 
-  if (event.ctrlKey && key === 'n') {
+  if (modKey && key === 'n') {
     event.preventDefault();
     command(event.shiftKey ? 'new-private-window' : 'new-window');
   }
 
-  if (event.ctrlKey && (key === 'h' || key === ',')) {
+  if (modKey && (key === 'h' || key === ',')) {
     event.preventDefault();
     command('open-settings');
   }
 
-  if (event.ctrlKey && (key === 'd' || key === 'b')) {
+  if (modKey && (key === 'd' || key === 'b')) {
     event.preventDefault();
     command('open-favorites');
   }
 
-  if (event.ctrlKey && event.shiftKey && (key === 'e' || key === 'x')) {
+  if (modKey && event.shiftKey && (key === 'e' || key === 'x')) {
     event.preventDefault();
     command('open-extensions');
   }
 
-  if (key === 'f12' || (event.ctrlKey && event.shiftKey && key === 'i')) {
+  if (key === 'f12' || (modKey && event.shiftKey && key === 'i')) {
     event.preventDefault();
     command('toggle-devtools');
   }
 
-  if (event.ctrlKey && (key === '=' || key === '+')) {
+  if (modKey && (key === '=' || key === '+')) {
     event.preventDefault();
     command('zoom-in');
   }
 
-  if (event.ctrlKey && key === '-') {
+  if (modKey && key === '-') {
     event.preventDefault();
     command('zoom-out');
   }
 
-  if (event.ctrlKey && key === '0') {
+  if (modKey && key === '0') {
     event.preventDefault();
     command('zoom-reset');
   }
 
-  if (event.ctrlKey && key === 'j') {
+  if (modKey && key === 'j') {
     event.preventDefault();
     toggleDownloadsPanel();
   }
 
-  if (event.ctrlKey && key === 'w') {
+  if (modKey && key === 'w') {
     event.preventDefault();
     command('close-tab', state.activeId);
   }
 
-  if ((event.ctrlKey && key === 'r') || key === 'f5') {
+  if ((modKey && key === 'r') || key === 'f5') {
     event.preventDefault();
     command(event.shiftKey ? 'reload-hard' : 'reload');
   }
 
-  if (event.ctrlKey && key === 'tab') {
+  if (modKey && key === 'tab') {
     event.preventDefault();
     command(event.shiftKey ? 'cycle-previous' : 'cycle-next');
   }
 
-  if (event.ctrlKey && /^[1-9]$/u.test(key)) {
+  if (modKey && /^[1-9]$/u.test(key)) {
     event.preventDefault();
     const tab = state.tabs[Number(key) - 1] || state.tabs.at(-1);
     if (tab) command('select-tab', tab.id);

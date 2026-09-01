@@ -5,7 +5,7 @@
   --panel: #181818;
   --panel-hover: #242424;
   --border: #2a2a2a;
-  font-family: "IBM Plex Mono", Consolas, "Cascadia Mono", monospace;
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
   color: var(--fg);
   background: var(--bg);
 }

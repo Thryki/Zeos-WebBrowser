@@ -8,7 +8,7 @@
   --panel-hover: #242424;
   --border: #2a2a2a;
   --border-focus: rgba(34, 197, 94, 0.6);
-  font-family: "IBM Plex Mono", Consolas, "Cascadia Mono", monospace;
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
   background: transparent;
   color: var(--fg);
 }
@@ -68,6 +68,15 @@ button {
   border-bottom: 1px solid var(--border);
   position: relative;
   gap: 4px;
+}
+
+/* macOS: leave room for the native traffic lights and drop the HTML
+   window controls, which would duplicate them. */
+body.platform-darwin #tabs-bar {
+  padding-left: 76px;
+}
+body.platform-darwin .window-controls {
+  display: none;
 }
 
 .header-left {
