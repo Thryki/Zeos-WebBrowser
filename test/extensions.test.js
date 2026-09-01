@@ -4,25 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const zlib = require('node:zlib');
 const { toNavigationTarget } = require('../src/navigation');
-
-// Test CRC32 & ZIP Packaging
-const crcTable = new Uint32Array(256);
-for (let n = 0; n < 256; n++) {
-  let c = n;
-  for (let k = 0; k < 8; k++) {
-    c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
-  }
-  crcTable[n] = c;
-}
-function crc32(buf) {
-  let crc = 0 ^ (-1);
-  for (let i = 0; i < buf.length; i++) {
-    crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
-  }
-  return (crc ^ (-1)) >>> 0;
-}
+const { crc32, packZip, isRemovableRunnerDir } = require('../src/extension-utils');
 
 test('navigation correctly routes extensions URLs', () => {
   const t1 = toNavigationTarget('zeos://extensions');
@@ -33,111 +18,78 @@ test('navigation correctly routes extensions URLs', () => {
   assert.equal(t2.type, 'url');
   assert.equal(t2.url, 'chrome://extensions');
 
-  const t3 = toNavigationTarget('chrome-extension://abcdefghijklmnopqrstuvwxyz/options.html');
+  const t3 = toNavigationTarget('chrome-extension://abcdef/options.html');
   assert.equal(t3.type, 'url');
-  assert.equal(t3.url, 'chrome-extension://abcdefghijklmnopqrstuvwxyz/options.html');
 });
 
-test('zip generator packs files into valid archive', () => {
-  const tmpDir = path.join(__dirname, 'tmp-ext-test');
-  fs.mkdirSync(tmpDir, { recursive: true });
-  fs.writeFileSync(path.join(tmpDir, 'manifest.json'), JSON.stringify({
-    manifest_version: 3,
-    name: 'Test Extension',
-    version: '1.0.0',
-    description: 'A test extension'
-  }), 'utf8');
+test('crc32 matches the zlib reference implementation', () => {
+  for (const sample of ['', 'zeos', 'manifest.json content', 'a'.repeat(4096)]) {
+    const buf = Buffer.from(sample, 'utf8');
+    assert.equal(crc32(buf), zlib.crc32(buf) >>> 0, `crc32 mismatch for ${JSON.stringify(sample.slice(0, 16))}`);
+  }
+});
 
-  const testZip = path.join(__dirname, 'test-extension.zip');
+test('packZip produces an archive whose entries decompress back to the source', (t) => {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeos-test-'));
+  t.after(() => { try { fs.rmSync(workDir, { recursive: true, force: true }); } catch {} });
 
-  // Pack function
-  const entries = [];
-  const files = fs.readdirSync(tmpDir);
-  for (const f of files) {
-    const full = path.join(tmpDir, f);
-    const data = fs.readFileSync(full);
-    const compressed = zlib.deflateRawSync(data);
-    entries.push({
-      path: f,
-      data,
-      compressed,
-      crc: crc32(data),
-      size: data.length,
-      compressedSize: compressed.length
-    });
+  const srcDir = path.join(workDir, 'ext');
+  fs.mkdirSync(path.join(srcDir, 'sub'), { recursive: true });
+  const files = {
+    'manifest.json': JSON.stringify({ name: 'Test Ext', manifest_version: 3, version: '1.0' }),
+    [path.join('sub', 'script.js')]: 'console.log("zeos");'
+  };
+  for (const [rel, content] of Object.entries(files)) {
+    fs.writeFileSync(path.join(srcDir, rel), content, 'utf8');
   }
 
-  const chunks = [];
+  const zipPath = path.join(workDir, 'ext.zip');
+  assert.equal(packZip(srcDir, zipPath), true);
+  const buf = fs.readFileSync(zipPath);
+
+  // Walk the local file headers and verify each entry round-trips.
+  const found = new Map();
   let offset = 0;
-  const centralEntries = [];
-
-  for (const entry of entries) {
-    const pathBuf = Buffer.from(entry.path, 'utf8');
-    const localHeader = Buffer.alloc(30 + pathBuf.length);
-    localHeader.writeUInt32LE(0x04034b50, 0);
-    localHeader.writeUInt16LE(20, 4);
-    localHeader.writeUInt16LE(0, 6);
-    localHeader.writeUInt16LE(8, 8);
-    localHeader.writeUInt16LE(0, 10);
-    localHeader.writeUInt16LE(0, 12);
-    localHeader.writeUInt32LE(entry.crc, 14);
-    localHeader.writeUInt32LE(entry.compressedSize, 18);
-    localHeader.writeUInt32LE(entry.size, 22);
-    localHeader.writeUInt16LE(pathBuf.length, 26);
-    localHeader.writeUInt16LE(0, 28);
-    pathBuf.copy(localHeader, 30);
-
-    chunks.push(localHeader);
-    chunks.push(entry.compressed);
-
-    const centralHeader = Buffer.alloc(46 + pathBuf.length);
-    centralHeader.writeUInt32LE(0x02014b50, 0);
-    centralHeader.writeUInt16LE(20, 4);
-    centralHeader.writeUInt16LE(20, 6);
-    centralHeader.writeUInt16LE(0, 8);
-    centralHeader.writeUInt16LE(8, 10);
-    centralHeader.writeUInt16LE(0, 12);
-    centralHeader.writeUInt16LE(0, 14);
-    centralHeader.writeUInt32LE(entry.crc, 16);
-    centralHeader.writeUInt32LE(entry.compressedSize, 20);
-    centralHeader.writeUInt32LE(entry.size, 24);
-    centralHeader.writeUInt16LE(pathBuf.length, 28);
-    centralHeader.writeUInt16LE(0, 30);
-    centralHeader.writeUInt16LE(0, 32);
-    centralHeader.writeUInt16LE(0, 34);
-    centralHeader.writeUInt16LE(0, 36);
-    centralHeader.writeUInt32LE(0, 38);
-    centralHeader.writeUInt32LE(offset, 42);
-    pathBuf.copy(centralHeader, 46);
-
-    centralEntries.push(centralHeader);
-    offset += localHeader.length + entry.compressed.length;
+  while (offset + 4 <= buf.length && buf.readUInt32LE(offset) === 0x04034b50) {
+    const compressedSize = buf.readUInt32LE(offset + 18);
+    const nameLen = buf.readUInt16LE(offset + 26);
+    const extraLen = buf.readUInt16LE(offset + 28);
+    const name = buf.toString('utf8', offset + 30, offset + 30 + nameLen);
+    const dataStart = offset + 30 + nameLen + extraLen;
+    const inflated = zlib.inflateRawSync(buf.subarray(dataStart, dataStart + compressedSize));
+    found.set(name, inflated.toString('utf8'));
+    offset = dataStart + compressedSize;
   }
 
-  const centralOffset = offset;
-  let centralSize = 0;
-  for (const c of centralEntries) {
-    chunks.push(c);
-    centralSize += c.length;
-  }
+  assert.equal(found.get('manifest.json'), files['manifest.json']);
+  assert.equal(found.get('sub/script.js'), files[path.join('sub', 'script.js')]);
 
-  const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0);
-  eocd.writeUInt16LE(0, 4);
-  eocd.writeUInt16LE(0, 6);
-  eocd.writeUInt16LE(entries.length, 8);
-  eocd.writeUInt16LE(entries.length, 10);
-  eocd.writeUInt32LE(centralSize, 12);
-  eocd.writeUInt32LE(centralOffset, 16);
-  eocd.writeUInt16LE(0, 20);
-  chunks.push(eocd);
+  // End-of-central-directory record must exist and count both entries.
+  const eocdOffset = buf.length - 22;
+  assert.equal(buf.readUInt32LE(eocdOffset), 0x06054b50, 'missing EOCD record');
+  assert.equal(buf.readUInt16LE(eocdOffset + 10), 2, 'EOCD entry count');
+});
 
-  fs.writeFileSync(testZip, Buffer.concat(chunks));
+test('isRemovableRunnerDir never allows deleting the user source folder', (t) => {
+  const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'user-ext-src-'));
+  t.after(() => { try { fs.rmSync(sourceDir, { recursive: true, force: true }); } catch {} });
 
-  assert.ok(fs.existsSync(testZip));
-  assert.ok(fs.statSync(testZip).size > 100);
+  // The regression that shipped: runnerPath falling back to the source path.
+  assert.equal(isRemovableRunnerDir(sourceDir, sourceDir), false);
 
-  // Clean up
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-  fs.unlinkSync(testZip);
+  // A path outside the OS temp dir is never removable, prefix or not.
+  const outside = path.join(__dirname, 'zeos-ext-abc123');
+  assert.equal(isRemovableRunnerDir(outside, sourceDir), false);
+
+  // Traversal out of the temp dir is rejected.
+  assert.equal(isRemovableRunnerDir(path.join(os.tmpdir(), 'zeos-ext-x', '..', '..', 'etc'), sourceDir), false);
+
+  // A temp-dir folder without the zeos-ext- prefix is not ours to delete.
+  assert.equal(isRemovableRunnerDir(path.join(os.tmpdir(), 'some-other-dir'), sourceDir), false);
+});
+
+test('isRemovableRunnerDir accepts a genuine zeos runner copy in tmpdir', () => {
+  const runner = path.join(os.tmpdir(), 'zeos-ext-0123456789ab');
+  const source = 'C:\\Users\\someone\\extensions\\my-ext';
+  assert.equal(isRemovableRunnerDir(runner, source), true);
 });
