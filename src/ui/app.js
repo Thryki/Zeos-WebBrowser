@@ -327,6 +327,9 @@ function renderTabResourceMetrics(tabs) {
   if (!activeTab || !activeTab.resourceMetrics) return;
 
   const { cpu, memory } = activeTab.resourceMetrics;
+  // Nothing feeds tab:set-metrics yet, so per-tab metrics stay zeroed;
+  // an all-zero reading must not overwrite the live system-wide stats.
+  if (!cpu && !memory) return;
 
   if (statCpuVal) {
     statCpuVal.textContent = `${cpu}%`;
@@ -776,8 +779,12 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (key === 'shift' && !event.repeat) {
-    event.preventDefault();
-    command('toggle-chrome');
+    const el = document.activeElement;
+    const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    if (!isTyping) {
+      event.preventDefault();
+      command('toggle-chrome');
+    }
   }
 
   if (event.ctrlKey && key === 'l') {
