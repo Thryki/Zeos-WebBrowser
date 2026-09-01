@@ -606,6 +606,24 @@ const ZEOS_EXTENSION_POLYFILL = `
 const extensionRunnerMap = new Map();
 const extensionSourceMap = new Map();
 
+// A runner dir may only be deleted when it is unambiguously a Zeos-created
+// copy inside the OS temp dir and not the user's original source folder.
+// Fails closed: any resolution error means "do not delete".
+function isRemovableRunnerDir(runnerPath, sourcePath) {
+  try {
+    const resolve = (p) => {
+      try { return fs.realpathSync(p); } catch { return path.resolve(p); }
+    };
+    const runner = resolve(runnerPath);
+    if (sourcePath && runner === resolve(sourcePath)) return false;
+    const rel = path.relative(resolve(os.tmpdir()), runner);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false;
+    return path.basename(runner).startsWith('zeos-ext-');
+  } catch {
+    return false;
+  }
+}
+
 function prepareExtensionRunnerDir(sourceDir) {
   try {
     const hash = crypto.createHash('md5').update(sourceDir).digest('hex').slice(0, 12);
@@ -824,7 +842,7 @@ function removeExtension(extensionId) {
         settings.extensions = settings.extensions.filter(p => p !== ext.path);
         settings.disabledExtensions = settings.disabledExtensions.filter(p => p !== ext.path);
         const mapped = extensionRunnerMap.get(ext.path);
-        if (mapped?.runnerPath) {
+        if (mapped?.runnerPath && isRemovableRunnerDir(mapped.runnerPath, ext.path)) {
           try { fs.rmSync(mapped.runnerPath, { recursive: true, force: true }); } catch (e) {}
         }
         extensionRunnerMap.delete(ext.path);
