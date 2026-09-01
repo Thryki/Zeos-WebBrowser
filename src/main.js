@@ -1047,6 +1047,9 @@ class Browser {
         nodeIntegration: false
       }
     });
+    // The chrome view overlays the page when the downloads panel is open;
+    // without a transparent background the uncovered area paints black.
+    this.chrome.setBackgroundColor('#00000000');
     this.window.contentView.addChildView(this.chrome);
     chromeOwners.set(this.chrome.webContents.id, this);
     this.chrome.webContents.loadFile(path.join(__dirname, 'ui', 'index.html'));
@@ -1673,7 +1676,8 @@ class Browser {
     try { fs.writeFileSync(userFile('session.json'), JSON.stringify(data), 'utf8'); } catch (error) { console.error(error); }
   }
   showMenu(menu, point = {}) {
-    const options = { window: this.window, x: Math.round(Number(point.x) || 0), y: Math.round(Number(point.y) || 0) };
+    const zoom = (settings.appearance?.zoomLevel || 100) / 100;
+    const options = { window: this.window, x: Math.round((Number(point.x) || 0) * zoom), y: Math.round((Number(point.y) || 0) * zoom) };
     if (menu === 'plus' || menu === 'app-menu') {
       const now = Date.now();
       if (now - this.lastMenuClosedAt < 250) {
@@ -1847,7 +1851,8 @@ class Browser {
     const ext = session.defaultSession.getAllExtensions().find(e => e.id === extensionId);
     if (!ext) return;
     const details = getExtensionDetails(ext);
-    const options = { window: this.window, x: Math.round(Number(point.x) || 0), y: Math.round(Number(point.y) || 0) };
+    const zoom = (settings.appearance?.zoomLevel || 100) / 100;
+    const options = { window: this.window, x: Math.round((Number(point.x) || 0) * zoom), y: Math.round((Number(point.y) || 0) * zoom) };
 
     const template = [
       { label: `${details.name} (v${details.version})`, enabled: false },
@@ -1940,8 +1945,11 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
     const popupWidth = 380;
     const popupHeight = 520;
 
-    let x = winBounds.x + Math.round(Number(anchorBounds.x) || (winBounds.width - 250)) + Math.round((Number(anchorBounds.width) || 28) / 2) - Math.round(popupWidth / 2);
-    let y = winBounds.y + Math.round(Number(anchorBounds.bottom || anchorBounds.y || 76)) + 4;
+    // Anchor bounds arrive in the chrome view's CSS pixels; scale by the UI
+    // zoom factor to get window DIP coordinates.
+    const zoom = (settings.appearance?.zoomLevel || 100) / 100;
+    let x = winBounds.x + Math.round((Number(anchorBounds.x) * zoom) || (winBounds.width - 250)) + Math.round(((Number(anchorBounds.width) || 28) * zoom) / 2) - Math.round(popupWidth / 2);
+    let y = winBounds.y + Math.round((Number(anchorBounds.bottom || anchorBounds.y || 76)) * zoom) + 4;
 
     if (x + popupWidth > winBounds.x + winBounds.width - 10) {
       x = winBounds.x + winBounds.width - popupWidth - 10;
@@ -1976,9 +1984,9 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
       }
       activeExtensionPopup = null;
     });
-  } else if (details.optionsPage) {
-    browser.createWebTab(`chrome-extension://${ext.id}/${details.optionsPage}`, true);
   } else {
+    // Chrome behavior: a click on the action icon fires onClicked in the
+    // extension. The options page is reachable only via the context menu.
     const activeTab = browser.active();
     triggerExtensionAction(ext.id, { id: 1, url: activeTab?.url || '', active: true }).then((ok) => {
       if (!ok) console.error('Extension action dispatch failed for', ext.id);
