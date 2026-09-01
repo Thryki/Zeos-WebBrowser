@@ -1377,13 +1377,9 @@ class Browser {
   createSpecialTab(kind) { return this.createTab(kind, '', true); }
   createTab(kind, target, activate) {
     const view = this.createView(kind);
-    let initialFavicon = '';
-    if (target && target.startsWith('http')) {
-      try {
-        const host = new URL(target).hostname;
-        initialFavicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
-      } catch {}
-    }
+    // Favicons come only from the page's own page-favicon-updated event —
+    // an external favicon service would leak every visited hostname.
+    const initialFavicon = '';
     const initialTitle = kind === 'settings' ? 'configurações' : kind === 'favorites' ? 'favoritos' : kind === 'extensions' ? 'extensões' : 'nova aba';
     const initialUrl = kind === 'settings' ? 'zeos://settings' : kind === 'favorites' ? 'zeos://favoritos' : kind === 'extensions' ? 'zeos://extensions' : (target || '');
     const tab = {
@@ -1439,15 +1435,11 @@ class Browser {
     });
     contents.on('did-navigate', (_event, url) => {
       if (tab.kind === 'web') {
+        const prevUrl = tab.url;
         tab.url = url;
-        if (url.startsWith('http')) {
-          try {
-            const host = new URL(url).hostname;
-            if (!tab.favicon || tab.favicon.includes('google.com/s2/favicons')) {
-              tab.favicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
-            }
-          } catch {}
-        }
+        try {
+          if (!prevUrl || new URL(prevUrl).hostname !== new URL(url).hostname) tab.favicon = '';
+        } catch { tab.favicon = ''; }
         addHistory(url, tab.title);
         const owner = getOwner();
         owner.sendState();
@@ -1627,12 +1619,7 @@ class Browser {
     const { url } = toNavigationTarget(target, settings.searchProvider);
     tab.url = url;
     tab.loading = true;
-    if (url.startsWith('http')) {
-      try {
-        const host = new URL(url).hostname;
-        tab.favicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
-      } catch {}
-    }
+    tab.favicon = '';
     tab.view.webContents.loadURL(url).catch(() => { tab.loading = false; tab.title = 'falha ao abrir'; this.sendState(); });
     this.sendState();
   }
