@@ -2082,9 +2082,9 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
       backgroundColor: settings.appearance.background || '#050805',
       webPreferences: {
         session: session.defaultSession,
-        contextIsolation: false,
+        contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: true
       }
     });
 
