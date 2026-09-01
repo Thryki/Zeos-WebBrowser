@@ -22,12 +22,12 @@ const DEFAULT_SETTINGS = {
   disabledExtensions: [],
   appearance: {
     themeId: 'orca',
-    background: '#050805',
-    foreground: '#8abe85',
-    accent: '#69a865',
-    panel: '#0a120b',
-    panelHover: '#121f14',
-    border: 'rgba(105, 168, 101, 0.2)',
+    background: '#0b0b0b',
+    foreground: '#f5f5f5',
+    accent: '#22c55e',
+    panel: '#181818',
+    panelHover: '#242424',
+    border: '#2a2a2a',
     font: 'IBM Plex Mono',
     zoomLevel: 100
   },
@@ -162,8 +162,8 @@ function notifySettings() {
 
 function updateSettings(patch) {
   if (!patch || typeof patch !== 'object') return { ...copy(settings), themes: THEMES };
-  if (typeof patch.initialPage === 'string' && patch.initialPage.trim() && patch.initialPage.length < 2048) settings.initialPage = toNavigationTarget(patch.initialPage).url;
   if (SEARCH_PROVIDERS[patch.searchProvider]) settings.searchProvider = patch.searchProvider;
+  if (typeof patch.initialPage === 'string' && patch.initialPage.trim() && patch.initialPage.length < 2048) settings.initialPage = toNavigationTarget(patch.initialPage, settings.searchProvider).url;
   
   // Theme ID selection
   if (typeof patch.themeId === 'string') {
@@ -228,8 +228,8 @@ function clearHistoryRange(range) {
   } else if (range === '7d') {
     const threshold = now - 7 * 24 * 3600 * 1000;
     settings.history = settings.history.filter(item => (item.visitedAt || 0) < threshold);
-  } else if (range === '4w') {
-    const threshold = now - 28 * 24 * 3600 * 1000;
+  } else if (range === '30d' || range === '4w') {
+    const threshold = now - 30 * 24 * 3600 * 1000;
     settings.history = settings.history.filter(item => (item.visitedAt || 0) < threshold);
   } else {
     settings.history = [];
@@ -779,10 +779,11 @@ function getExtensionDetails(ext, isExplicitlyEnabled = null) {
 
 async function loadUnpackedExtension(win) {
   const targetWin = win || BrowserWindow.getFocusedWindow() || (browsers.values().next().value?.window);
-  const result = await dialog.showOpenDialog(targetWin, {
+  const openOpts = {
     title: 'Selecionar pasta da extensão descompactada do Chrome (contendo manifest.json)',
     properties: ['openDirectory']
-  });
+  };
+  const result = await (targetWin ? dialog.showOpenDialog(targetWin, openOpts) : dialog.showOpenDialog(openOpts));
   if (result.canceled || !result.filePaths.length) return null;
   const extPath = result.filePaths[0];
   try {
@@ -1009,18 +1010,20 @@ async function packExtensionDialog(win, extensionId) {
   let extPath = ext?.path;
   const targetWin = win || BrowserWindow.getFocusedWindow() || browsers.values().next().value?.window;
   if (!extPath) {
-    const pickDir = await dialog.showOpenDialog(targetWin, {
+    const pickOpts = {
       title: 'Selecionar pasta da extensão para compactar',
       properties: ['openDirectory']
-    });
+    };
+    const pickDir = await (targetWin ? dialog.showOpenDialog(targetWin, pickOpts) : dialog.showOpenDialog(pickOpts));
     if (pickDir.canceled || !pickDir.filePaths.length) return { success: false };
     extPath = pickDir.filePaths[0];
   }
-  const saveResult = await dialog.showSaveDialog(targetWin, {
+  const saveOpts = {
     title: 'Salvar arquivo compactado (.zip)',
     defaultPath: `${path.basename(extPath)}.zip`,
     filters: [{ name: 'Arquivo ZIP (*.zip)', extensions: ['zip'] }]
-  });
+  };
+  const saveResult = await (targetWin ? dialog.showSaveDialog(targetWin, saveOpts) : dialog.showSaveDialog(saveOpts));
   if (saveResult.canceled || !saveResult.filePath) return { success: false };
   try {
     packZip(extPath, saveResult.filePath);
@@ -1151,7 +1154,7 @@ class Browser {
       minHeight: 360,
       frame: false,
       show: false,
-      backgroundColor: settings.appearance.background || '#050805',
+      backgroundColor: settings.appearance.background || '#0b0b0b',
       icon: path.join(__dirname, 'assets', 'zeos-logo.png'),
       title: this.privateMode ? 'zeos privado' : 'zeos',
       webPreferences: {
@@ -1191,8 +1194,9 @@ class Browser {
     if (startupTabs.length === 0) {
       startupTabs = sessionData.tabs.length ? sessionData.tabs : [{ url: this.initialUrl || settings.initialPage }];
     }
+    const restoredActiveIndex = Math.min(Math.max(0, sessionData.activeIndex || 0), startupTabs.length - 1);
     startupTabs.forEach((tab, index) => {
-      const created = this.createWebTab(tab.url, index === Math.min((tab.activeIndex || 0), startupTabs.length - 1));
+      const created = this.createWebTab(tab.url, index === restoredActiveIndex);
       if (tab.pinned) created.pinned = true;
       // Restore workspaceId from stored tab, but only if the workspace still exists (fallback: null)
       if (tab.workspaceId) {
@@ -1290,7 +1294,8 @@ class Browser {
     }
   }
   stateFor(tab) {
-    const history = tab.view.webContents.navigationHistory;
+    const contents = tab.view.webContents;
+    const history = contents.isDestroyed() ? null : contents.navigationHistory;
     return {
       id: tab.id,
       title: tab.title || 'nova aba',
@@ -1299,8 +1304,8 @@ class Browser {
       isLoading: tab.loading,
       kind: tab.kind,
       pinned: Boolean(tab.pinned),
-      canGoBack: history.canGoBack(),
-      canGoForward: history.canGoForward(),
+      canGoBack: Boolean(history?.canGoBack()),
+      canGoForward: Boolean(history?.canGoForward()),
       resourceMetrics: tab.resourceMetrics || { cpu: 0, memory: 0 },
       workspaceId: tab.workspaceId || null
     };
@@ -1617,7 +1622,10 @@ class Browser {
     }
     tab.kind = 'web';
     this.ensureViewKind(tab, 'web');
-    const { url } = toNavigationTarget(target, settings.searchProvider);
+    let { url } = toNavigationTarget(target, settings.searchProvider);
+    // zeos:// pages other than the ones handled above do not exist; fall back
+    // to the home page instead of surfacing ERR_UNKNOWN_URL_SCHEME.
+    if (/^zeos:/i.test(url)) url = settings.initialPage || HOME_URL;
     tab.url = url;
     tab.loading = true;
     tab.favicon = '';
@@ -2079,7 +2087,7 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
       skipTaskbar: true,
       alwaysOnTop: true,
       parent: browser.window,
-      backgroundColor: settings.appearance.background || '#050805',
+      backgroundColor: settings.appearance.background || '#0b0b0b',
       webPreferences: {
         session: session.defaultSession,
         contextIsolation: true,
@@ -2362,6 +2370,10 @@ app.whenReady().then(async () => {
       }
     }
   }, 2500);
+}).catch((err) => {
+  console.error('Fatal startup error:', err);
+  try { dialog.showErrorBox('Zeos', `Falha ao iniciar: ${err?.message || err}`); } catch {}
+  app.quit();
 });
 
 app.on('before-quit', () => { for (const browser of browsers) browser.saveSession(); saveSettings(); });

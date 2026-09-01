@@ -113,10 +113,8 @@ function renderTabs() {
   tabsElement.replaceChildren();
 
   state.tabs.forEach((tab, idx) => {
-    // Filtrar abas que não pertencem ao workspace atual
-    if (state.currentWorkspaceId && tab.workspaceId !== state.currentWorkspaceId && tab.workspaceId !== null && tab.workspaceId !== undefined) {
-      return;
-    }
+    // Workspace tab filtering stays disabled until a workspace switcher UI
+    // exists — with no way to switch back, hiding tabs would strand them.
     const button = document.createElement('button');
     const isActive = tab.id === state.activeId;
     const isPinned = Boolean(tab.pinned);
@@ -795,6 +793,46 @@ window.addEventListener('keydown', (event) => {
   if (event.ctrlKey && key === 't') {
     event.preventDefault();
     command('new-tab');
+  }
+
+  if (event.ctrlKey && key === 'n') {
+    event.preventDefault();
+    command(event.shiftKey ? 'new-private-window' : 'new-window');
+  }
+
+  if (event.ctrlKey && (key === 'h' || key === ',')) {
+    event.preventDefault();
+    command('open-settings');
+  }
+
+  if (event.ctrlKey && (key === 'd' || key === 'b')) {
+    event.preventDefault();
+    command('open-favorites');
+  }
+
+  if (event.ctrlKey && event.shiftKey && (key === 'e' || key === 'x')) {
+    event.preventDefault();
+    command('open-extensions');
+  }
+
+  if (key === 'f12' || (event.ctrlKey && event.shiftKey && key === 'i')) {
+    event.preventDefault();
+    command('toggle-devtools');
+  }
+
+  if (event.ctrlKey && (key === '=' || key === '+')) {
+    event.preventDefault();
+    command('zoom-in');
+  }
+
+  if (event.ctrlKey && key === '-') {
+    event.preventDefault();
+    command('zoom-out');
+  }
+
+  if (event.ctrlKey && key === '0') {
+    event.preventDefault();
+    command('zoom-reset');
   }
 
   if (event.ctrlKey && key === 'j') {

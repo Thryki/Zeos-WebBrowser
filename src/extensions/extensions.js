@@ -69,12 +69,12 @@ function showToast(msg) {
 
 function applyThemeColors(appearance = {}) {
   const root = document.documentElement.style;
-  root.setProperty('--bg', appearance.background || '#050805');
-  root.setProperty('--fg', appearance.foreground || '#8abe85');
-  root.setProperty('--accent', appearance.accent || '#69a865');
-  root.setProperty('--panel', appearance.panel || '#0a120b');
-  root.setProperty('--panel-hover', appearance.panelHover || '#121f14');
-  root.setProperty('--border', appearance.border || 'rgba(105, 168, 101, 0.2)');
+  root.setProperty('--bg', appearance.background || '#0b0b0b');
+  root.setProperty('--fg', appearance.foreground || '#f5f5f5');
+  root.setProperty('--accent', appearance.accent || '#22c55e');
+  root.setProperty('--panel', appearance.panel || '#181818');
+  root.setProperty('--panel-hover', appearance.panelHover || '#242424');
+  root.setProperty('--border', appearance.border || '#2a2a2a');
   root.fontFamily = `"${appearance.font || 'IBM Plex Mono'}", Consolas, monospace`;
 }
 

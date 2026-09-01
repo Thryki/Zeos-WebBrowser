@@ -5,11 +5,11 @@
   <title>favoritos</title>
   <style>
     :root {
-      --bg: #050805;
-      --fg: #8abe85;
-      --accent: #69a865;
-      --panel: #0a120b;
-      --border: rgba(105, 168, 101, 0.2);
+      --bg: #0b0b0b;
+      --fg: #f5f5f5;
+      --accent: #22c55e;
+      --panel: #181818;
+      --border: #2a2a2a;
       font-family: "IBM Plex Mono", Consolas, monospace;
       color: var(--fg);
       background: var(--bg);
@@ -68,11 +68,11 @@
       function applyTheme(s) {
         if (!s || !s.appearance) return;
         const root = document.documentElement.style;
-        root.setProperty('--bg', s.appearance.background || '#050805');
-        root.setProperty('--fg', s.appearance.foreground || '#8abe85');
-        root.setProperty('--accent', s.appearance.accent || '#69a865');
-        root.setProperty('--panel', s.appearance.panel || '#0a120b');
-        root.setProperty('--border', s.appearance.border || 'rgba(105, 168, 101, 0.2)');
+        root.setProperty('--bg', s.appearance.background || '#0b0b0b');
+        root.setProperty('--fg', s.appearance.foreground || '#f5f5f5');
+        root.setProperty('--accent', s.appearance.accent || '#22c55e');
+        root.setProperty('--panel', s.appearance.panel || '#181818');
+        root.setProperty('--border', s.appearance.border || '#2a2a2a');
         root.fontFamily = `"${s.appearance.font || 'IBM Plex Mono'}", Consolas, monospace`;
       }
       window.zeosSettings.get().then(applyTheme);
