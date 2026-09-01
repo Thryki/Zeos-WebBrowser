@@ -98,7 +98,8 @@
     "publish": {
       "provider": "github",
       "owner": "Thryki",
-      "repo": "Zeos-WebBrowser"
+      "repo": "Zeos-WebBrowser",
+      "releaseType": "release"
     }
   }
 }
