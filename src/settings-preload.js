@@ -14,7 +14,17 @@ contextBridge.exposeInMainWorld('zeosSettings', {
   extensions: {
     getAll: () => ipcRenderer.invoke('extensions:get-all'),
     loadUnpacked: () => ipcRenderer.invoke('extensions:load-unpacked'),
-    remove: (extensionId) => ipcRenderer.invoke('extensions:remove', extensionId)
+    remove: (extensionId) => ipcRenderer.invoke('extensions:remove', extensionId),
+    toggleEnable: (extensionId, enabled) => ipcRenderer.invoke('extensions:toggle-enable', { extensionId, enabled }),
+    reload: (extensionId) => ipcRenderer.invoke('extensions:reload', extensionId),
+    reloadAll: () => ipcRenderer.invoke('extensions:reload-all'),
+    inspectBackground: (extensionId) => ipcRenderer.invoke('extensions:inspect-background', extensionId),
+    pack: (extensionId) => ipcRenderer.invoke('extensions:pack', extensionId),
+    showInFolder: (extensionId) => ipcRenderer.invoke('extensions:show-in-folder', extensionId),
+    openOptions: (extensionId) => ipcRenderer.invoke('extensions:open-options', extensionId),
+    openWebStore: () => ipcRenderer.invoke('extensions:open-web-store'),
+    setDevMode: (enabled) => ipcRenderer.invoke('extensions:set-dev-mode', Boolean(enabled)),
+    getDevMode: () => ipcRenderer.invoke('extensions:get-dev-mode')
   },
   onChanged: (handler) => {
     const listener = (_event, settings) => handler(settings);
@@ -22,3 +32,26 @@ contextBridge.exposeInMainWorld('zeosSettings', {
     return () => ipcRenderer.removeListener('settings:changed', listener);
   }
 });
+
+contextBridge.exposeInMainWorld('zeosExtensions', {
+  getAll: () => ipcRenderer.invoke('extensions:get-all'),
+  loadUnpacked: () => ipcRenderer.invoke('extensions:load-unpacked'),
+  remove: (extensionId) => ipcRenderer.invoke('extensions:remove', extensionId),
+  toggleEnable: (extensionId, enabled) => ipcRenderer.invoke('extensions:toggle-enable', { extensionId, enabled }),
+  reload: (extensionId) => ipcRenderer.invoke('extensions:reload', extensionId),
+  reloadAll: () => ipcRenderer.invoke('extensions:reload-all'),
+  inspectBackground: (extensionId) => ipcRenderer.invoke('extensions:inspect-background', extensionId),
+  pack: (extensionId) => ipcRenderer.invoke('extensions:pack', extensionId),
+  showInFolder: (extensionId) => ipcRenderer.invoke('extensions:show-in-folder', extensionId),
+  openOptions: (extensionId) => ipcRenderer.invoke('extensions:open-options', extensionId),
+  openWebStore: () => ipcRenderer.invoke('extensions:open-web-store'),
+  setDevMode: (enabled) => ipcRenderer.invoke('extensions:set-dev-mode', Boolean(enabled)),
+  getDevMode: () => ipcRenderer.invoke('extensions:get-dev-mode'),
+  openUrl: (url) => ipcRenderer.invoke('settings:open-url', url),
+  onChanged: (handler) => {
+    const listener = (_event, settings) => handler(settings);
+    ipcRenderer.on('settings:changed', listener);
+    return () => ipcRenderer.removeListener('settings:changed', listener);
+  }
+});
+

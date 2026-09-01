@@ -113,6 +113,10 @@ function renderTabs() {
   tabsElement.replaceChildren();
 
   state.tabs.forEach((tab, idx) => {
+    // Filtrar abas que não pertencem ao workspace atual
+    if (state.currentWorkspaceId && tab.workspaceId !== state.currentWorkspaceId && tab.workspaceId !== null && tab.workspaceId !== undefined) {
+      return;
+    }
     const button = document.createElement('button');
     const isActive = tab.id === state.activeId;
     const isPinned = Boolean(tab.pinned);
@@ -313,6 +317,22 @@ function renderExtensions(extensions = []) {
     });
 
     extensionsToolbar.appendChild(btn);
+  }
+}
+
+function renderTabResourceMetrics(tabs) {
+  // Update per-tab metrics in the UI
+  // Show metrics for active tab or all tabs in a condensed format
+  const activeTab = tabs.find((t) => t.id === state.activeId);
+  if (!activeTab || !activeTab.resourceMetrics) return;
+
+  const { cpu, memory } = activeTab.resourceMetrics;
+
+  if (statCpuVal) {
+    statCpuVal.textContent = `${cpu}%`;
+  }
+  if (statRamVal) {
+    statRamVal.textContent = `${memory} MB`;
   }
 }
 
@@ -524,6 +544,11 @@ function applyState(next) {
 
   if (state.downloadsSummary) {
     handleDownloadsUpdate(state.downloadsSummary);
+  }
+
+  // Update per-tab resource metrics display
+  if (state.tabs) {
+    renderTabResourceMetrics(state.tabs);
   }
 }
 

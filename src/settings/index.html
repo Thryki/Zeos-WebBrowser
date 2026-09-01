@@ -30,12 +30,15 @@
 
     <!-- SECTION: EXTENSÕES DO CHROME -->
     <section>
-      <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="section-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div>
           <h1>Extensões do Google Chrome</h1>
           <p class="section-desc">Carregue e gerencie extensões (Manifest V2 / V3) no Zeos WebBrowser.</p>
         </div>
-        <button id="load-extension-btn" class="action-btn">＋ Carregar extensão descompactada</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="open-extensions-page-btn" class="action-btn" style="background: color-mix(in srgb, var(--accent) 20%, var(--panel)); border-color: var(--accent);">🧩 Abrir gerenciador completo ↗</button>
+          <button id="load-extension-btn" class="action-btn">＋ Carregar extensão</button>
+        </div>
       </div>
 
       <div id="extensions-list" class="extensions-grid"></div>

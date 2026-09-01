@@ -47,5 +47,18 @@ contextBridge.exposeInMainWorld('zeos', {
     const listener = (_event, stats) => handler(stats);
     ipcRenderer.on('browser:system-stats', listener);
     return () => ipcRenderer.removeListener('browser:system-stats', listener);
+  },
+  workspaces: {
+    list: () => ipcRenderer.invoke('workspaces:list'),
+    create: (name, icon) => ipcRenderer.invoke('workspaces:create', { name, icon }),
+    rename: (workspaceId, newName) => ipcRenderer.invoke('workspaces:rename', { workspaceId, newName }),
+    icon: (workspaceId, icon) => ipcRenderer.invoke('workspaces:icon', { workspaceId, icon }),
+    delete: (workspaceId) => ipcRenderer.invoke('workspaces:delete', workspaceId),
+    switch: (workspaceId) => ipcRenderer.invoke('workspaces:switch', workspaceId)
+  },
+  tab: {
+    associateWorkspace: (tabId, workspaceId) => ipcRenderer.invoke('tab:associate-workspace', { tabId, workspaceId }),
+    setState: (tabId, state) => ipcRenderer.invoke('tab:set-state', { tabId, state }),
+    setMetrics: (tabId, cpu, memory) => ipcRenderer.invoke('tab:set-metrics', { tabId, cpu, memory })
   }
 });

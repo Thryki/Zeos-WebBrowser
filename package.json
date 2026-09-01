@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "start": "electron .",
-    "check": "node --check src/main.js && node --check src/navigation.js && node --check src/preload.js && node --check src/settings-preload.js && node --check src/ui/app.js && node --check src/settings/settings.js && node --check src/themes.js",
+    "check": "node --check src/main.js && node --check src/navigation.js && node --check src/preload.js && node --check src/settings-preload.js && node --check src/ui/app.js && node --check src/settings/settings.js && node --check src/extensions/extensions.js && node --check src/themes.js",
     "test": "node --test test/**/*.test.js"
   },
   "devDependencies": {

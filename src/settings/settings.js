@@ -26,6 +26,7 @@ const clearCookiesBtn = document.querySelector('#clear-cookies');
 const extensionsList = document.querySelector('#extensions-list');
 const extensionsEmpty = document.querySelector('#extensions-empty');
 const loadExtensionBtn = document.querySelector('#load-extension-btn');
+const openExtensionsPageBtn = document.querySelector('#open-extensions-page-btn');
 
 // History elements & Modal
 const historyList = document.querySelector('#history');
@@ -256,6 +257,27 @@ function renderHistory(history) {
       metaDiv.appendChild(timeSpan);
     }
 
+    // Tags display
+    if (item.tags && item.tags.length > 0) {
+      const tagsSpan = document.createElement('span');
+      tagsSpan.className = 'history-tags';
+      item.tags.forEach((tag) => {
+        const tagEl = document.createElement('span');
+        tagEl.className = 'history-tag';
+        tagEl.textContent = `#${tag}`;
+        tagsSpan.appendChild(tagEl);
+      });
+      metaDiv.appendChild(tagsSpan);
+    }
+
+    // Workspace info
+    if (item.workspaceId) {
+      const wsSpan = document.createElement('span');
+      wsSpan.className = 'history-workspace';
+      wsSpan.textContent = `WS${item.workspaceId}`;
+      metaDiv.appendChild(wsSpan);
+    }
+
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'history-delete-btn';
     deleteBtn.title = 'Remover este item do histórico';
@@ -407,7 +429,11 @@ if (window.zeosSettings) {
     setTimeout(() => { clearCookiesBtn.textContent = 'Limpar cookies'; }, 2000);
   });
 
-  // Chrome Extensions Load Button
+  // Chrome Extensions Buttons
+  openExtensionsPageBtn?.addEventListener('click', () => {
+    window.zeosSettings.openUrl('zeos://extensions');
+  });
+
   loadExtensionBtn?.addEventListener('click', async () => {
     const loaded = await window.zeosSettings.extensions.loadUnpacked();
     if (loaded) {

@@ -57,3 +57,12 @@ test('turns multi-word text into configured search query', () => {
     url: 'https://search.brave.com/search?q=notebooks%20gamer%20baratas'
   });
 });
+
+test('keeps internal and custom protocol URLs', () => {
+  assert.deepEqual(toNavigationTarget('zeos://extensions'), { type: 'url', url: 'zeos://extensions' });
+  assert.deepEqual(toNavigationTarget('chrome://extensions'), { type: 'url', url: 'chrome://extensions' });
+  assert.deepEqual(toNavigationTarget('zeos://settings'), { type: 'url', url: 'zeos://settings' });
+  assert.deepEqual(toNavigationTarget('chrome-extension://abcdef/popup.html'), { type: 'url', url: 'chrome-extension://abcdef/popup.html' });
+});
+
+

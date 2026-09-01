@@ -6,6 +6,8 @@ const path = require('node:path');
 const { HOME_URL, SEARCH_PROVIDERS, toNavigationTarget } = require('./navigation');
 const { THEMES, getTheme } = require('./themes');
 
+const WORKSPACES_FILE = 'workspaces.json';
+
 const TAB_HEIGHT = 38;
 const ADDRESS_HEIGHT = 38;
 const DEFAULT_BOUNDS = { width: 1200, height: 760 };
@@ -14,6 +16,8 @@ const FONTS = ['IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', '
 const DEFAULT_SETTINGS = {
   initialPage: HOME_URL,
   searchProvider: 'duckduckgo',
+  developerMode: true,
+  disabledExtensions: [],
   appearance: {
     themeId: 'orca',
     background: '#050805',
@@ -48,6 +52,32 @@ const chromeOwners = new Map();
 const pageOwners = new Map();
 const configuredSessions = new WeakSet();
 
+const workspaces = new Map();
+
+function loadWorkspaces() {
+  const stored = readJson(WORKSPACES_FILE, null);
+  if (stored && typeof stored === 'object' && Array.isArray(stored.workspaces)) {
+    stored.workspaces.forEach((ws) => {
+      ws.tabs = Array.isArray(ws.tabs) ? ws.tabs : [];
+      workspaces.set(ws.id, ws);
+    });
+  }
+}
+
+function saveWorkspaces() {
+  const data = { workspaces: Array.from(workspaces.values()) };
+  writeJson(WORKSPACES_FILE, data);
+}
+
+function getWorkspace(id) { return workspaces.get(id) || null; }
+function getCurrentWorkspace() {
+  if (browsers.size > 0) {
+    const firstBrowser = browsers.values().next().value;
+    return firstBrowser.workspaceId ? getWorkspace(firstBrowser.workspaceId) : null;
+  }
+  return null;
+}
+
 // Download tracking system
 const sessionDownloads = [];
 const activeDownloadItems = new Map();
@@ -55,18 +85,23 @@ const activeDownloadItems = new Map();
 function userFile(name) { return path.join(app.getPath('userData'), name); }
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
 function readJson(name, fallback) { try { return JSON.parse(fs.readFileSync(userFile(name), 'utf8')); } catch { return fallback; } }
+function writeJson(name, data) { try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(userFile(name), JSON.stringify(data), 'utf8'); } catch (error) { console.error(`Error writing ${name}:`, error); } }
 
 function loadSettings() {
   const stored = readJson('settings.json', {});
-  return {
+  const loaded = {
     ...copy(DEFAULT_SETTINGS),
     ...stored,
+    developerMode: typeof stored.developerMode === 'boolean' ? stored.developerMode : DEFAULT_SETTINGS.developerMode,
+    disabledExtensions: Array.isArray(stored.disabledExtensions) ? stored.disabledExtensions : [],
     appearance: { ...DEFAULT_SETTINGS.appearance, ...(stored.appearance || {}) },
     navbarButtons: { ...DEFAULT_SETTINGS.navbarButtons, ...(stored.navbarButtons || {}) },
     permissions: { ...DEFAULT_SETTINGS.permissions, ...(stored.permissions || {}) },
     extensions: Array.isArray(stored.extensions) ? stored.extensions : [],
     history: Array.isArray(stored.history) ? stored.history.slice(0, 2000) : []
   };
+  loadWorkspaces();
+  return loaded;
 }
 
 function saveSettingsSoon() { clearTimeout(settingsTimer); settingsTimer = setTimeout(saveSettings, 250); }
@@ -116,7 +151,7 @@ function notifySettings() {
     applyZoomToBrowser(browser);
     browser.sendState();
     for (const tab of browser.tabs) {
-      if ((tab.kind === 'settings' || tab.kind === 'favorites') && !tab.view.webContents.isDestroyed()) {
+      if ((tab.kind === 'settings' || tab.kind === 'favorites' || tab.kind === 'extensions') && !tab.view.webContents.isDestroyed()) {
         tab.view.webContents.send('settings:changed', { ...copy(settings), themes: THEMES });
       }
     }
@@ -209,10 +244,21 @@ function removeHistoryItem(url) {
   return { ...copy(settings), themes: THEMES };
 }
 
-function addHistory(url, title) {
+function addHistory(url, title, opts = {}) {
   if (!url || !url.startsWith('http')) return;
-  settings.history = [{ url, title: title || url, visitedAt: Date.now() }, ...settings.history.filter((entry) => entry.url !== url)].slice(0, 2000);
+  const entry = {
+    url,
+    title: title || url,
+    visitedAt: Date.now(),
+    lastVisitedAt: Date.now(),
+    visitCount: 1,
+    tags: opts.tags || [],
+    searchableText: opts.searchableText || (title || '').toLowerCase() + ' ' + url.toLowerCase(),
+    workspaceId: opts.workspaceId || null
+  };
+  settings.history = [{ ...entry }, ...settings.history.filter((entry) => entry.url !== url)].slice(0, 2000);
   saveSettingsSoon();
+  notifySettings();
 }
 
 function readSession() {
@@ -221,30 +267,420 @@ function readSession() {
   return { bounds: stored.bounds || DEFAULT_BOUNDS, tabs, activeIndex: Math.max(0, Number(stored.activeIndex) || 0) };
 }
 
+const zlib = require('node:zlib');
+
+// CRC32 table for zip generation
+const crcTable = new Uint32Array(256);
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let k = 0; k < 8; k++) {
+    c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+  }
+  crcTable[n] = c;
+}
+function crc32(buf) {
+  let crc = 0 ^ (-1);
+  for (let i = 0; i < buf.length; i++) {
+    crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
+  }
+  return (crc ^ (-1)) >>> 0;
+}
+
+function packZip(sourceDir, targetZipPath) {
+  const entries = [];
+  function scan(dir, base) {
+    const files = fs.readdirSync(dir);
+    for (const f of files) {
+      if (f === '.git' || f === 'node_modules' || f.startsWith('.')) continue;
+      const full = path.join(dir, f);
+      const rel = base ? base + '/' + f : f;
+      const stat = fs.statSync(full);
+      if (stat.isDirectory()) {
+        scan(full, rel);
+      } else {
+        const data = fs.readFileSync(full);
+        const compressed = zlib.deflateRawSync(data);
+        entries.push({
+          path: rel.replace(/\\/g, '/'),
+          data,
+          compressed,
+          crc: crc32(data),
+          size: data.length,
+          compressedSize: compressed.length
+        });
+      }
+    }
+  }
+  scan(sourceDir, '');
+
+  const chunks = [];
+  let offset = 0;
+  const centralEntries = [];
+
+  for (const entry of entries) {
+    const pathBuf = Buffer.from(entry.path, 'utf8');
+    const localHeader = Buffer.alloc(30 + pathBuf.length);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(8, 8);
+    localHeader.writeUInt16LE(0, 10);
+    localHeader.writeUInt16LE(0, 12);
+    localHeader.writeUInt32LE(entry.crc, 14);
+    localHeader.writeUInt32LE(entry.compressedSize, 18);
+    localHeader.writeUInt32LE(entry.size, 22);
+    localHeader.writeUInt16LE(pathBuf.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+    pathBuf.copy(localHeader, 30);
+
+    chunks.push(localHeader);
+    chunks.push(entry.compressed);
+
+    const centralHeader = Buffer.alloc(46 + pathBuf.length);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0, 8);
+    centralHeader.writeUInt16LE(8, 10);
+    centralHeader.writeUInt16LE(0, 12);
+    centralHeader.writeUInt16LE(0, 14);
+    centralHeader.writeUInt32LE(entry.crc, 16);
+    centralHeader.writeUInt32LE(entry.compressedSize, 20);
+    centralHeader.writeUInt32LE(entry.size, 24);
+    centralHeader.writeUInt16LE(pathBuf.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    pathBuf.copy(centralHeader, 46);
+
+    centralEntries.push(centralHeader);
+    offset += localHeader.length + entry.compressed.length;
+  }
+
+  const centralOffset = offset;
+  let centralSize = 0;
+  for (const c of centralEntries) {
+    chunks.push(c);
+    centralSize += c.length;
+  }
+
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralSize, 12);
+  eocd.writeUInt32LE(centralOffset, 16);
+  eocd.writeUInt16LE(0, 20);
+  chunks.push(eocd);
+
+  fs.writeFileSync(targetZipPath, Buffer.concat(chunks));
+  return true;
+}
+
+const ZEOS_EXTENSION_POLYFILL = `
+// === ZEOS CHROME EXTENSION POLYFILL ===
+(function() {
+  if (typeof self === 'undefined' && typeof window !== 'undefined') self = window;
+  if (typeof self.chrome === 'undefined') self.chrome = {};
+
+  function createEvent() {
+    const listeners = new Set();
+    const ev = {
+      addListener(fn) { if (typeof fn === 'function') listeners.add(fn); },
+      removeListener(fn) { listeners.delete(fn); },
+      hasListener(fn) { return listeners.has(fn); },
+      hasListeners() { return listeners.size > 0; },
+      dispatch(...args) {
+        for (const fn of Array.from(listeners)) {
+          try { fn(...args); } catch(e) { console.error('[ZeosExtEvent Error]', e); }
+        }
+      }
+    };
+    return ev;
+  }
+
+  // chrome.action
+  if (!self.chrome.action) {
+    self.chrome.action = {
+      onClicked: createEvent(),
+      setTitle(d, cb) { if (cb) cb(); return Promise.resolve(); },
+      getTitle(d, cb) { if (cb) cb(''); return Promise.resolve(''); },
+      setIcon(d, cb) { if (cb) cb(); return Promise.resolve(); },
+      setPopup(d, cb) { if (cb) cb(); return Promise.resolve(); },
+      getPopup(d, cb) { if (cb) cb(''); return Promise.resolve(''); },
+      setBadgeText(d, cb) { if (cb) cb(); return Promise.resolve(); },
+      getBadgeText(d, cb) { if (cb) cb(''); return Promise.resolve(); },
+      setBadgeBackgroundColor(d, cb) { if (cb) cb(); return Promise.resolve(); },
+      getBadgeBackgroundColor(d, cb) { if (cb) cb([0,0,0,0]); return Promise.resolve([0,0,0,0]); },
+      enable(tabId, cb) { if (cb) cb(); return Promise.resolve(); },
+      disable(tabId, cb) { if (cb) cb(); return Promise.resolve(); },
+      getUserSettings(cb) { const s = { isOnToolbar: true }; if (cb) cb(s); return Promise.resolve(s); }
+    };
+  }
+  if (!self.chrome.browserAction) self.chrome.browserAction = self.chrome.action;
+  if (!self.chrome.pageAction) self.chrome.pageAction = self.chrome.action;
+
+  // chrome.contextMenus
+  if (!self.chrome.contextMenus) {
+    const menus = new Map();
+    self.chrome.contextMenus = {
+      onClicked: createEvent(),
+      create(props, cb) {
+        if (props && props.id) menus.set(props.id, props);
+        if (cb) cb();
+        return props?.id;
+      },
+      update(id, props, cb) {
+        if (menus.has(id)) Object.assign(menus.get(id), props);
+        if (cb) cb();
+        return Promise.resolve();
+      },
+      remove(id, cb) {
+        menus.delete(id);
+        if (cb) cb();
+        return Promise.resolve();
+      },
+      removeAll(cb) {
+        menus.clear();
+        if (cb) cb();
+        return Promise.resolve();
+      }
+    };
+  }
+
+  // chrome.commands
+  if (!self.chrome.commands) {
+    self.chrome.commands = {
+      onCommand: createEvent(),
+      getAll(cb) {
+        const cmds = [];
+        if (cb) cb(cmds);
+        return Promise.resolve(cmds);
+      }
+    };
+  }
+
+  // chrome.offscreen
+  if (!self.chrome.offscreen) {
+    self.chrome.offscreen = {
+      Reason: {
+        TESTING: 'TESTING',
+        AUDIO_PLAYBACK: 'AUDIO_PLAYBACK',
+        IFRAME_SCRIPTING: 'IFRAME_SCRIPTING',
+        DOM_SCRAPING: 'DOM_SCRAPING',
+        BLOBS: 'BLOBS',
+        CLIPBOARD: 'CLIPBOARD'
+      },
+      createDocument(props) { return Promise.resolve(); },
+      closeDocument() { return Promise.resolve(); },
+      hasDocument() { return Promise.resolve(false); }
+    };
+  }
+
+  // chrome.storage
+  if (!self.chrome.storage || !self.chrome.storage.local) {
+    function createStorageArea() {
+      const memoryStore = new Map();
+      return {
+        get(keys, cb) {
+          return new Promise((resolve) => {
+            const res = {};
+            if (!keys) {
+              for (const [k, v] of memoryStore.entries()) res[k] = v;
+            } else if (typeof keys === 'string') {
+              if (memoryStore.has(keys)) res[keys] = memoryStore.get(keys);
+            } else if (Array.isArray(keys)) {
+              for (const k of keys) {
+                if (memoryStore.has(k)) res[k] = memoryStore.get(k);
+              }
+            } else if (typeof keys === 'object') {
+              for (const k in keys) {
+                res[k] = memoryStore.has(k) ? memoryStore.get(k) : keys[k];
+              }
+            }
+            if (cb) cb(res);
+            resolve(res);
+          });
+        },
+        set(items, cb) {
+          return new Promise((resolve) => {
+            if (items && typeof items === 'object') {
+              for (const [k, v] of Object.entries(items)) memoryStore.set(k, v);
+            }
+            if (cb) cb();
+            resolve();
+          });
+        },
+        remove(keys, cb) {
+          return new Promise((resolve) => {
+            const arr = Array.isArray(keys) ? keys : [keys];
+            for (const k of arr) memoryStore.delete(k);
+            if (cb) cb();
+            resolve();
+          });
+        },
+        clear(cb) {
+          return new Promise((resolve) => {
+            memoryStore.clear();
+            if (cb) cb();
+            resolve();
+          });
+        },
+        getBytesInUse(keys, cb) { if (cb) cb(0); return Promise.resolve(0); },
+        setAccessLevel(opts, cb) { if (cb) cb(); return Promise.resolve(); }
+      };
+    }
+    self.chrome.storage = {
+      local: createStorageArea(),
+      sync: createStorageArea(),
+      session: createStorageArea(),
+      managed: createStorageArea(),
+      onChanged: createEvent()
+    };
+  }
+
+  // chrome.windows
+  if (!self.chrome.windows) {
+    self.chrome.windows = {
+      WINDOW_ID_NONE: -1,
+      WINDOW_ID_CURRENT: -2,
+      getCurrent(opts, cb) {
+        const win = { id: 1, focused: true, state: 'normal', type: 'normal' };
+        if (typeof opts === 'function') { opts(win); return; }
+        if (cb) cb(win);
+        return Promise.resolve(win);
+      },
+      getAll(opts, cb) {
+        const wins = [{ id: 1, focused: true, state: 'normal', type: 'normal' }];
+        if (typeof opts === 'function') { opts(wins); return; }
+        if (cb) cb(wins);
+        return Promise.resolve(wins);
+      },
+      onCreated: createEvent(),
+      onRemoved: createEvent(),
+      onFocusChanged: createEvent()
+    };
+  }
+
+  // Intercept runtime messages for Zeos triggers
+  if (self.chrome.runtime && self.chrome.runtime.onMessage) {
+    self.chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg && msg.__zeos_trigger_action) {
+        const tab = msg.tab || { id: 1, url: '', active: true };
+        if (self.chrome.action && self.chrome.action.onClicked) {
+          self.chrome.action.onClicked.dispatch(tab);
+        }
+        if (self.chrome.browserAction && self.chrome.browserAction.onClicked) {
+          self.chrome.browserAction.onClicked.dispatch(tab);
+        }
+        sendResponse({ success: true });
+        return true;
+      }
+      if (msg && msg.__zeos_trigger_command) {
+        if (self.chrome.commands && self.chrome.commands.onCommand) {
+          self.chrome.commands.onCommand.dispatch(msg.command);
+        }
+        sendResponse({ success: true });
+        return true;
+      }
+      if (msg && msg.__zeos_trigger_context_menu) {
+        if (self.chrome.contextMenus && self.chrome.contextMenus.onClicked) {
+          self.chrome.contextMenus.onClicked.dispatch(msg.info || {}, msg.tab || { id: 1 });
+        }
+        sendResponse({ success: true });
+        return true;
+      }
+    });
+  }
+})();
+// === END POLYFILL ===
+`;
+
+const extensionRunnerMap = new Map();
+const extensionSourceMap = new Map();
+
+function prepareExtensionRunnerDir(sourceDir) {
+  try {
+    const hash = crypto.createHash('md5').update(sourceDir).digest('hex').slice(0, 12);
+    const runnerDir = path.join(os.tmpdir(), 'zeos-ext-' + hash);
+    
+    if (fs.existsSync(runnerDir)) {
+      try { fs.rmSync(runnerDir, { recursive: true, force: true }); } catch (e) {}
+    }
+    fs.cpSync(sourceDir, runnerDir, { recursive: true });
+
+    const manifestPath = path.join(runnerDir, 'manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      if (manifest.background) {
+        if (manifest.background.service_worker) {
+          const swPath = path.join(runnerDir, manifest.background.service_worker);
+          if (fs.existsSync(swPath)) {
+            const original = fs.readFileSync(swPath, 'utf8');
+            fs.writeFileSync(swPath, ZEOS_EXTENSION_POLYFILL + '\n' + original, 'utf8');
+          }
+        }
+        if (Array.isArray(manifest.background.scripts)) {
+          for (const s of manifest.background.scripts) {
+            const sPath = path.join(runnerDir, s);
+            if (fs.existsSync(sPath)) {
+              const original = fs.readFileSync(sPath, 'utf8');
+              fs.writeFileSync(sPath, ZEOS_EXTENSION_POLYFILL + '\n' + original, 'utf8');
+            }
+          }
+        }
+      }
+    }
+    return runnerDir;
+  } catch (err) {
+    console.error('Error preparing extension runner directory:', err);
+    return sourceDir;
+  }
+}
+
+async function loadPreparedExtension(sourcePath) {
+  const runnerPath = prepareExtensionRunnerDir(sourcePath);
+  const ext = await session.defaultSession.loadExtension(runnerPath, { allowFileAccess: true });
+  extensionRunnerMap.set(sourcePath, { runnerPath, id: ext.id });
+  extensionSourceMap.set(ext.id, sourcePath);
+  return ext;
+}
+
 // Chrome Extension management
 async function loadSavedExtensions() {
   if (!Array.isArray(settings.extensions)) {
     settings.extensions = [];
   }
+  if (!Array.isArray(settings.disabledExtensions)) {
+    settings.disabledExtensions = [];
+  }
   const loaded = [];
   for (const extPath of settings.extensions) {
     if (fs.existsSync(extPath)) {
-      try {
-        await session.defaultSession.loadExtension(extPath, { allowFileAccess: true });
-        loaded.push(extPath);
-      } catch (err) {
-        console.error('Failed to load extension:', extPath, err);
+      loaded.push(extPath);
+      if (!settings.disabledExtensions.includes(extPath)) {
+        try {
+          await loadPreparedExtension(extPath);
+        } catch (err) {
+          console.error('Failed to load extension:', extPath, err);
+        }
       }
     }
   }
   settings.extensions = loaded;
 }
 
-function getExtensionDetails(ext) {
+function getExtensionDetails(ext, isExplicitlyEnabled = null) {
+  const realPath = extensionSourceMap.get(ext.id) || ext.path;
   let manifest = ext.manifest;
-  if (!manifest && ext.path) {
+  if (!manifest && realPath) {
     try {
-      manifest = JSON.parse(fs.readFileSync(path.join(ext.path, 'manifest.json'), 'utf8'));
+      manifest = JSON.parse(fs.readFileSync(path.join(realPath, 'manifest.json'), 'utf8'));
     } catch {}
   }
   manifest = manifest || {};
@@ -274,10 +710,10 @@ function getExtensionDetails(ext) {
     Object.values(manifest.icons).forEach(p => iconCandidates.push(p));
   }
 
-  if (ext.path) {
+  if (realPath) {
     for (const relPath of iconCandidates) {
       if (!relPath || typeof relPath !== 'string') continue;
-      const fullPath = path.join(ext.path, relPath);
+      const fullPath = path.join(realPath, relPath);
       if (fs.existsSync(fullPath)) {
         try {
           const extName = path.extname(fullPath).toLowerCase();
@@ -294,15 +730,29 @@ function getExtensionDetails(ext) {
     }
   }
 
+  const isEnabled = isExplicitlyEnabled !== null
+    ? isExplicitlyEnabled
+    : (!settings.disabledExtensions.includes(realPath) && Boolean(ext.id));
+
+  const hasBackground = Boolean(manifest.background);
+  const backgroundType = manifest.background?.service_worker ? 'service_worker' : (manifest.background?.page || manifest.background?.scripts ? 'page' : 'none');
+
   return {
-    id: ext.id,
-    name: manifest.name || ext.name,
-    version: manifest.version || ext.version,
+    id: ext.id || (realPath ? path.basename(realPath).toLowerCase().replace(/[^a-z0-9]/g, '') : 'ext'),
+    name: manifest.name || ext.name || 'Extensão',
+    version: manifest.version || ext.version || '1.0',
     description: manifest.description || ext.description || '',
     icon: iconDataUrl,
     popup,
     optionsPage: manifest.options_page || (manifest.options_ui?.page) || '',
-    path: ext.path
+    path: realPath,
+    enabled: isEnabled,
+    permissions: Array.isArray(manifest.permissions) ? manifest.permissions : [],
+    hostPermissions: Array.isArray(manifest.host_permissions) ? manifest.host_permissions : [],
+    commands: manifest.commands || {},
+    hasBackground,
+    backgroundType,
+    homepageUrl: manifest.homepage_url || ''
   };
 }
 
@@ -315,13 +765,14 @@ async function loadUnpackedExtension(win) {
   if (result.canceled || !result.filePaths.length) return null;
   const extPath = result.filePaths[0];
   try {
-    const ext = await session.defaultSession.loadExtension(extPath, { allowFileAccess: true });
+    const ext = await loadPreparedExtension(extPath);
     if (!settings.extensions.includes(extPath)) {
       settings.extensions.push(extPath);
-      saveSettingsSoon();
     }
+    settings.disabledExtensions = settings.disabledExtensions.filter(p => p !== extPath);
+    saveSettingsSoon();
     notifySettings();
-    return getExtensionDetails(ext);
+    return getExtensionDetails(ext, true);
   } catch (error) {
     dialog.showErrorBox('Erro ao carregar extensão', error.message || 'Pasta inválida ou sem manifest.json.');
     return null;
@@ -330,16 +781,52 @@ async function loadUnpackedExtension(win) {
 
 function getInstalledExtensions() {
   const exts = session.defaultSession.getAllExtensions();
-  return exts.map(getExtensionDetails);
+  const loadedMap = new Map();
+  const result = [];
+
+  for (const ext of exts) {
+    const realPath = extensionSourceMap.get(ext.id) || ext.path;
+    if (realPath) loadedMap.set(realPath, ext);
+    result.push(getExtensionDetails(ext, true));
+  }
+
+  // Include any disabled extensions stored in settings.extensions
+  if (Array.isArray(settings.extensions)) {
+    for (const extPath of settings.extensions) {
+      if (!loadedMap.has(extPath) && fs.existsSync(extPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(path.join(extPath, 'manifest.json'), 'utf8'));
+          result.push(getExtensionDetails({
+            id: path.basename(extPath).toLowerCase().replace(/[^a-z0-9]/g, ''),
+            name: manifest.name,
+            version: manifest.version,
+            description: manifest.description,
+            manifest,
+            path: extPath
+          }, false));
+        } catch {}
+      }
+    }
+  }
+
+  return result;
 }
 
 function removeExtension(extensionId) {
   try {
-    const ext = session.defaultSession.getAllExtensions().find(e => e.id === extensionId);
+    const exts = getInstalledExtensions();
+    const ext = exts.find(e => e.id === extensionId);
     if (ext) {
-      session.defaultSession.removeExtension(extensionId);
+      try { session.defaultSession.removeExtension(extensionId); } catch {}
       if (ext.path) {
         settings.extensions = settings.extensions.filter(p => p !== ext.path);
+        settings.disabledExtensions = settings.disabledExtensions.filter(p => p !== ext.path);
+        const mapped = extensionRunnerMap.get(ext.path);
+        if (mapped?.runnerPath) {
+          try { fs.rmSync(mapped.runnerPath, { recursive: true, force: true }); } catch (e) {}
+        }
+        extensionRunnerMap.delete(ext.path);
+        extensionSourceMap.delete(extensionId);
         saveSettingsSoon();
       }
       notifySettings();
@@ -349,6 +836,137 @@ function removeExtension(extensionId) {
     console.error(err);
   }
   return false;
+}
+
+async function toggleExtensionEnable(extensionId, enabled) {
+  try {
+    const extList = getInstalledExtensions();
+    const target = extList.find(e => e.id === extensionId);
+    if (!target || !target.path) return false;
+
+    if (!enabled) {
+      try { session.defaultSession.removeExtension(extensionId); } catch {}
+      if (!settings.disabledExtensions.includes(target.path)) {
+        settings.disabledExtensions.push(target.path);
+      }
+    } else {
+      settings.disabledExtensions = settings.disabledExtensions.filter(p => p !== target.path);
+      if (fs.existsSync(target.path)) {
+        await loadPreparedExtension(target.path);
+      }
+    }
+    saveSettingsSoon();
+    notifySettings();
+    return true;
+  } catch (err) {
+    console.error('Error toggling extension:', err);
+    return false;
+  }
+}
+
+async function reloadExtension(extensionId) {
+  try {
+    const extList = getInstalledExtensions();
+    const target = extList.find(e => e.id === extensionId);
+    if (target && target.path && fs.existsSync(target.path)) {
+      try { session.defaultSession.removeExtension(extensionId); } catch {}
+      if (!settings.disabledExtensions.includes(target.path)) {
+        await loadPreparedExtension(target.path);
+      }
+      notifySettings();
+      return true;
+    }
+  } catch (err) {
+    console.error('Error reloading extension:', err);
+  }
+  return false;
+}
+
+async function reloadAllExtensions() {
+  try {
+    const exts = session.defaultSession.getAllExtensions();
+    for (const ext of exts) {
+      const realPath = extensionSourceMap.get(ext.id) || ext.path;
+      if (realPath && fs.existsSync(realPath)) {
+        try { session.defaultSession.removeExtension(ext.id); } catch {}
+        await loadPreparedExtension(realPath);
+      }
+    }
+    notifySettings();
+    return true;
+  } catch (err) {
+    console.error('Error reloading all extensions:', err);
+    return false;
+  }
+}
+
+function inspectBackground(extensionId) {
+  const { webContents } = require('electron');
+  const allContents = webContents.getAllWebContents();
+  const target = allContents.find(wc => {
+    try {
+      const u = wc.getURL();
+      return u && u.includes(extensionId);
+    } catch {
+      return false;
+    }
+  });
+  if (target && !target.isDestroyed()) {
+    target.openDevTools({ mode: 'detach' });
+    return true;
+  }
+  const ext = session.defaultSession.getAllExtensions().find(e => e.id === extensionId);
+  if (ext) {
+    const details = getExtensionDetails(ext);
+    if (details.popup) {
+      const inspectWin = new BrowserWindow({
+        width: 800,
+        height: 600,
+        title: `Inspecionar Extensão - ${details.name}`,
+        webPreferences: {
+          session: session.defaultSession
+        }
+      });
+      inspectWin.loadURL(`chrome-extension://${ext.id}/${details.popup}`);
+      inspectWin.webContents.openDevTools({ mode: 'detach' });
+      return true;
+    }
+  }
+  return false;
+}
+
+async function packExtensionDialog(win, extensionId) {
+  const ext = getInstalledExtensions().find(e => e.id === extensionId);
+  let extPath = ext?.path;
+  const targetWin = win || BrowserWindow.getFocusedWindow() || browsers.values().next().value?.window;
+  if (!extPath) {
+    const pickDir = await dialog.showOpenDialog(targetWin, {
+      title: 'Selecionar pasta da extensão para compactar',
+      properties: ['openDirectory']
+    });
+    if (pickDir.canceled || !pickDir.filePaths.length) return { success: false };
+    extPath = pickDir.filePaths[0];
+  }
+  const saveResult = await dialog.showSaveDialog(targetWin, {
+    title: 'Salvar arquivo compactado (.zip)',
+    defaultPath: `${path.basename(extPath)}.zip`,
+    filters: [{ name: 'Arquivo ZIP (*.zip)', extensions: ['zip'] }]
+  });
+  if (saveResult.canceled || !saveResult.filePath) return { success: false };
+  try {
+    packZip(extPath, saveResult.filePath);
+    return { success: true, path: saveResult.filePath };
+  } catch (err) {
+    dialog.showErrorBox('Erro ao compactar extensão', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+function setDevMode(enabled) {
+  settings.developerMode = Boolean(enabled);
+  saveSettingsSoon();
+  notifySettings();
+  return settings.developerMode;
 }
 
 function getDownloadsSummary() {
@@ -437,17 +1055,17 @@ function setupSession(browserSession) {
 }
 
 class Browser {
-  constructor(privateMode = false, restoreSession = false, initialUrl = null, initialBounds = null) {
+  constructor(privateMode = false, restoreSession = false, initialUrl = null, initialBounds = null, workspaceId = null) {
     this.privateMode = privateMode;
     this.restoreSession = restoreSession;
     this.initialUrl = initialUrl;
     this.initialBounds = initialBounds;
+    this.workspaceId = workspaceId;
     this.partition = privateMode ? `temp:zeos-${++privateNumber}` : undefined;
     this.tabs = [];
     this.activeId = null;
     this.expanded = false;
     this.downloadsPanelOpen = false;
-    this.downloads = 0;
     this.sessionTimer = undefined;
     this.dragStartBounds = null;
     this.dragStartMouse = null;
@@ -492,10 +1110,24 @@ class Browser {
       this.sendState();
     });
 
-    const startupTabs = sessionData.tabs.length ? sessionData.tabs : [{ url: this.initialUrl || settings.initialPage }];
+    // Determine startup tabs: prefer workspace tabs if workspace is set, fall back to session tabs
+    let startupTabs = [];
+    if (this.workspaceId) {
+      const ws = getWorkspace(this.workspaceId);
+      if (ws && ws.tabs && ws.tabs.length > 0) {
+        startupTabs = ws.tabs.map((t) => ({ ...t, view: null }));
+      }
+    }
+    if (startupTabs.length === 0) {
+      startupTabs = sessionData.tabs.length ? sessionData.tabs : [{ url: this.initialUrl || settings.initialPage }];
+    }
     startupTabs.forEach((tab, index) => {
-      const created = this.createWebTab(tab.url, index === Math.min(sessionData.activeIndex, startupTabs.length - 1));
+      const created = this.createWebTab(tab.url, index === Math.min((tab.activeIndex || 0), startupTabs.length - 1));
       if (tab.pinned) created.pinned = true;
+      // Restore workspaceId from stored tab, but only if the workspace still exists (fallback: null)
+      if (tab.workspaceId) {
+        this.tabs[this.tabs.length - 1].workspaceId = workspaces.has(tab.workspaceId) ? tab.workspaceId : null;
+      }
     });
     this.reorderPinnedTabs();
     if (!this.activeId) this.activeId = this.tabs[0]?.id;
@@ -598,7 +1230,9 @@ class Browser {
       kind: tab.kind,
       pinned: Boolean(tab.pinned),
       canGoBack: history.canGoBack(),
-      canGoForward: history.canGoForward()
+      canGoForward: history.canGoForward(),
+      resourceMetrics: tab.resourceMetrics || { cpu: 0, memory: 0 },
+      workspaceId: tab.workspaceId || null
     };
   }
   sendState() {
@@ -606,8 +1240,9 @@ class Browser {
     const active = this.active();
     const history = active?.view.webContents.navigationHistory;
     const downloadsSummary = getDownloadsSummary();
+    const ws = getWorkspace(this.workspaceId);
     this.chrome.webContents.send('browser:state', {
-      tabs: this.tabs.map((tab, idx) => ({ ...this.stateFor(tab), index: idx + 1 })),
+      tabs: this.tabs.map((tab, idx) => ({ ...this.stateFor(tab), index: idx + 1, resourceMetrics: tab.resourceMetrics })),
       activeId: this.activeId,
       activeUrl: active?.url || '',
       activeLoading: Boolean(active?.loading),
@@ -621,13 +1256,24 @@ class Browser {
       privateMode: this.privateMode,
       appearance: settings.appearance,
       navbarButtons: settings.navbarButtons,
-      systemStats: getSystemStats()
+      systemStats: getSystemStats(),
+      workspaces: Array.from(workspaces.values()).map((ws) => {
+        let tabCount = 0;
+        for (const b of browsers) {
+          for (const t of b.tabs) {
+            if (t.workspaceId === ws.id) tabCount++;
+          }
+        }
+        return { id: ws.id, name: ws.name, icon: ws.icon, tabCount };
+      }),
+      currentWorkspaceId: this.workspaceId
     });
   }
   createView(kind) {
+    const isSpecial = kind === 'settings' || kind === 'favorites' || kind === 'extensions';
     const view = new WebContentsView({
       webPreferences: {
-        preload: (kind === 'settings' || kind === 'favorites') ? path.join(__dirname, 'settings-preload.js') : undefined,
+        preload: isSpecial ? path.join(__dirname, 'settings-preload.js') : undefined,
         partition: this.partition,
         contextIsolation: true,
         nodeIntegration: false,
@@ -651,15 +1297,23 @@ class Browser {
         initialFavicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
       } catch {}
     }
+    const initialTitle = kind === 'settings' ? 'configurações' : kind === 'favorites' ? 'favoritos' : kind === 'extensions' ? 'extensões' : 'nova aba';
+    const initialUrl = kind === 'settings' ? 'zeos://settings' : kind === 'favorites' ? 'zeos://favoritos' : kind === 'extensions' ? 'zeos://extensions' : (target || '');
     const tab = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       kind,
       view,
-      title: kind === 'settings' ? 'configurações' : kind === 'favorites' ? 'favoritos' : 'nova aba',
-      url: target || '',
+      title: initialTitle,
+      url: initialUrl,
       favicon: initialFavicon,
-      loading: true,
-      pinned: false
+      loading: kind === 'web',
+      pinned: false,
+      state: 'active',
+      lastActiveAt: Date.now(),
+      resourceMetrics: {
+        cpu: 0,
+        memory: 0
+      }
     };
     this.tabs.push(tab);
     pageOwners.set(view.webContents.id, this);
@@ -669,6 +1323,7 @@ class Browser {
     this.layout();
     if (kind === 'settings') view.webContents.loadFile(path.join(__dirname, 'settings', 'index.html'));
     else if (kind === 'favorites') view.webContents.loadFile(path.join(__dirname, 'favorites', 'index.html'));
+    else if (kind === 'extensions') view.webContents.loadFile(path.join(__dirname, 'extensions', 'index.html'));
     else this.navigate(tab, target);
     this.sendState();
     this.saveSessionSoon();
@@ -791,6 +1446,11 @@ class Browser {
       this.createSpecialTab('favorites');
       return;
     }
+    if (ctrl && input.shift && (key === 'e' || key === 'x')) {
+      event.preventDefault();
+      this.createSpecialTab('extensions');
+      return;
+    }
     if (key === 'f5' || (ctrl && key === 'r')) {
       event.preventDefault();
       if (input.shift || (ctrl && input.shift)) tab?.view.webContents.reloadIgnoringCache();
@@ -826,6 +1486,40 @@ class Browser {
   }
   navigate(tab, target) {
     if (!tab) return;
+    const cleanTarget = String(target || '').trim().toLowerCase();
+    if (cleanTarget === 'zeos://extensions' || cleanTarget === 'chrome://extensions' || cleanTarget === 'about:extensions') {
+      tab.kind = 'extensions';
+      tab.title = 'extensões';
+      tab.url = 'zeos://extensions';
+      tab.loading = false;
+      tab.favicon = '';
+      tab.view.webContents.loadFile(path.join(__dirname, 'extensions', 'index.html'));
+      this.sendState();
+      this.saveSessionSoon();
+      return;
+    }
+    if (cleanTarget === 'zeos://settings' || cleanTarget === 'chrome://settings' || cleanTarget === 'about:settings') {
+      tab.kind = 'settings';
+      tab.title = 'configurações';
+      tab.url = 'zeos://settings';
+      tab.loading = false;
+      tab.favicon = '';
+      tab.view.webContents.loadFile(path.join(__dirname, 'settings', 'index.html'));
+      this.sendState();
+      this.saveSessionSoon();
+      return;
+    }
+    if (cleanTarget === 'zeos://favoritos' || cleanTarget === 'zeos://bookmarks' || cleanTarget === 'chrome://bookmarks' || cleanTarget === 'about:bookmarks') {
+      tab.kind = 'favorites';
+      tab.title = 'favoritos';
+      tab.url = 'zeos://favoritos';
+      tab.loading = false;
+      tab.favicon = '';
+      tab.view.webContents.loadFile(path.join(__dirname, 'favorites', 'index.html'));
+      this.sendState();
+      this.saveSessionSoon();
+      return;
+    }
     tab.kind = 'web';
     const { url } = toNavigationTarget(target, settings.searchProvider);
     tab.url = url;
@@ -1003,7 +1697,7 @@ class Browser {
   saveSession() {
     clearTimeout(this.sessionTimer);
     if (this.privateMode || !this.window || this.window.isDestroyed()) return;
-    const data = { bounds: this.window.getBounds(), activeIndex: Math.max(0, this.tabs.findIndex((tab) => tab.id === this.activeId)), tabs: this.tabs.filter((tab) => tab.kind === 'web').map((tab) => ({ url: tab.url || settings.initialPage, pinned: Boolean(tab.pinned) })) };
+    const data = { bounds: this.window.getBounds(), activeIndex: Math.max(0, this.tabs.findIndex((tab) => tab.id === this.activeId)), tabs: this.tabs.filter((tab) => tab.kind === 'web').map((tab) => ({ url: tab.url || settings.initialPage, pinned: Boolean(tab.pinned), workspaceId: tab.workspaceId || null })) };
     try { fs.writeFileSync(userFile('session.json'), JSON.stringify(data), 'utf8'); } catch (error) { console.error(error); }
   }
   showMenu(menu, point = {}) {
@@ -1020,7 +1714,7 @@ class Browser {
         { type: 'separator' },
         { label: 'Downloads', accelerator: 'Ctrl+J', click: () => this.chrome.webContents.send('browser:toggle-downloads') },
         { label: 'Favoritos', accelerator: 'Ctrl+D', click: () => this.createSpecialTab('favorites') },
-        { label: 'Extensões', accelerator: 'Ctrl+Shift+X', click: () => this.createSpecialTab('settings') },
+        { label: 'Extensões', accelerator: 'Ctrl+Shift+E', click: () => this.createSpecialTab('extensions') },
         { label: 'Configurações', accelerator: 'Ctrl+,', click: () => this.createSpecialTab('settings') },
         { type: 'separator' },
         { label: 'Personalizar barra de navegação...', click: () => this.createSpecialTab('settings') },
@@ -1199,7 +1893,7 @@ class Browser {
     template.push(
       {
         label: 'Gerenciar extensões',
-        click: () => this.createSpecialTab('settings')
+        click: () => this.createSpecialTab('extensions')
       },
       {
         label: 'Remover extensão...',
@@ -1229,6 +1923,7 @@ class Browser {
     else if (command === 'stop') tab?.view.webContents.stop();
     else if (command === 'toggle-devtools') tab?.view.webContents.toggleDevTools();
     else if (command === 'open-settings') this.createSpecialTab('settings');
+    else if (command === 'open-extensions') this.createSpecialTab('extensions');
     else if (command === 'open-favorites' || command === 'toggle-sidebar') this.createSpecialTab('favorites');
     else if (command === 'minimize') this.window.minimize();
     else if (command === 'toggle-maximize') this.window.isMaximized() ? this.window.unmaximize() : this.window.maximize();
@@ -1312,7 +2007,7 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
   } else if (details.optionsPage) {
     browser.createWebTab(`chrome-extension://${ext.id}/${details.optionsPage}`, true);
   } else {
-    browser.createSpecialTab('settings');
+    browser.createSpecialTab('extensions');
   }
 }
 
@@ -1368,6 +2063,47 @@ ipcMain.handle('extensions:load-unpacked', (event) => {
   return loadUnpackedExtension(win);
 });
 ipcMain.handle('extensions:remove', (_event, extensionId) => removeExtension(extensionId));
+ipcMain.handle('extensions:toggle-enable', (_event, { extensionId, enabled }) => toggleExtensionEnable(extensionId, enabled));
+ipcMain.handle('extensions:reload', (_event, extensionId) => reloadExtension(extensionId));
+ipcMain.handle('extensions:reload-all', () => reloadAllExtensions());
+ipcMain.handle('extensions:inspect-background', (_event, extensionId) => inspectBackground(extensionId));
+ipcMain.handle('extensions:pack', (event, extensionId) => {
+  const owner = chromeOwners.get(event.sender.id);
+  const win = owner ? owner.window : BrowserWindow.getFocusedWindow();
+  return packExtensionDialog(win, extensionId);
+});
+ipcMain.handle('extensions:show-in-folder', (_event, extensionId) => {
+  const ext = getInstalledExtensions().find(e => e.id === extensionId);
+  if (ext?.path && fs.existsSync(ext.path)) {
+    shell.showItemInFolder(ext.path);
+    return true;
+  }
+  return false;
+});
+ipcMain.handle('extensions:open-options', (event, extensionId) => {
+  const ext = session.defaultSession.getAllExtensions().find(e => e.id === extensionId);
+  if (ext) {
+    const details = getExtensionDetails(ext);
+    if (details.optionsPage) {
+      const owner = chromeOwners.get(event.sender.id) || browsers.values().next().value;
+      if (owner) {
+        owner.createWebTab(`chrome-extension://${ext.id}/${details.optionsPage}`, true);
+        return true;
+      }
+    }
+  }
+  return false;
+});
+ipcMain.handle('extensions:open-web-store', (event) => {
+  const owner = chromeOwners.get(event.sender.id) || browsers.values().next().value;
+  if (owner) {
+    owner.createWebTab('https://chromewebstore.google.com/', true);
+    return true;
+  }
+  return false;
+});
+ipcMain.handle('extensions:set-dev-mode', (_event, enabled) => setDevMode(enabled));
+ipcMain.handle('extensions:get-dev-mode', () => Boolean(settings.developerMode));
 
 ipcMain.handle('settings:get', () => ({ ...copy(settings), themes: THEMES }));
 ipcMain.handle('settings:get-themes', () => THEMES);
@@ -1384,6 +2120,134 @@ ipcMain.handle('settings:open-url', (_event, url) => {
   return false;
 });
 ipcMain.handle('settings:clear-cookies', async () => { await session.defaultSession.clearStorageData({ storages: ['cookies'] }); return true; });
+
+// Workspaces IPC
+ipcMain.handle('workspaces:list', () => Array.from(workspaces.values()).map((ws) => {
+  let tabCount = 0;
+  for (const b of browsers) {
+    for (const t of b.tabs) {
+      if (t.workspaceId === ws.id) tabCount++;
+    }
+  }
+  return { id: ws.id, name: ws.name, icon: ws.icon, tabCount };
+}));
+ipcMain.handle('workspaces:create', (_event, { name, icon }) => {
+  const id = `ws_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const newWorkspace = {
+    id,
+    name: name || `Workspace ${workspaces.size + 1}`,
+    icon: icon || '📁',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    tabs: [],
+    activeTabId: null,
+    history: [],
+    metadata: {}
+  };
+  workspaces.set(id, newWorkspace);
+  saveWorkspaces();
+  return { id, name: newWorkspace.name, icon: newWorkspace.icon };
+});
+ipcMain.handle('workspaces:rename', (_event, { workspaceId, newName }) => {
+  const ws = workspaces.get(workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found' };
+  ws.name = newName;
+  ws.updatedAt = Date.now();
+  saveWorkspaces();
+  return { success: true, name: ws.name };
+});
+ipcMain.handle('workspaces:icon', (_event, { workspaceId, icon }) => {
+  const ws = workspaces.get(workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found' };
+  ws.icon = icon;
+  ws.updatedAt = Date.now();
+  saveWorkspaces();
+  return { success: true, icon: ws.icon };
+});
+ipcMain.handle('workspaces:delete', (_event, workspaceId) => {
+  const ws = workspaces.get(workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found' };
+  // Move tabs out of the deleted workspace - tabs must survive, no orphaned references
+  for (const browser of browsers) {
+    for (const tab of browser.tabs) {
+      if (tab.workspaceId === workspaceId) {
+        tab.workspaceId = null;
+      }
+    }
+    // If this browser's active context was the deleted workspace, clear it
+    if (browser.workspaceId === workspaceId) {
+      browser.workspaceId = null;
+    }
+    browser.sendState();
+  }
+  workspaces.delete(workspaceId);
+  saveWorkspaces();
+  return { success: true };
+});
+ipcMain.handle('workspaces:switch', (event, workspaceId) => {
+  const ws = workspaces.get(workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found' };
+
+  // Apenas alterar o contexto ativo do browser originador - NÃO mover abas, NÃO afetar outros browsers
+  const browser = chromeOwners.get(event.sender.id);
+  if (browser) {
+    browser.workspaceId = workspaceId;
+    browser.sendState();
+  }
+  saveWorkspaces();
+  return { success: true, name: ws.name };
+});
+
+// Associate tab with workspace IPC
+ipcMain.handle('tab:associate-workspace', (_event, { tabId, workspaceId }) => {
+  // Validate: workspaceId must be null or point to an existing workspace
+  if (workspaceId !== null && workspaceId !== undefined && !workspaces.has(workspaceId)) {
+    return { success: false, error: 'Workspace not found' };
+  }
+  for (const browser of browsers) {
+    const tab = browser.tabs.find((t) => t.id === tabId);
+    if (tab) {
+      tab.workspaceId = workspaceId || null;
+      tab.lastActiveAt = Date.now();
+      saveWorkspaces();
+      browser.sendState();
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Tab not found' };
+});
+
+// Tab state IPC
+ipcMain.handle('tab:set-state', (_event, { tabId, state }) => {
+  for (const browser of browsers) {
+    const tab = browser.tabs.find((t) => t.id === tabId);
+    if (tab) {
+      tab.state = state;
+      tab.lastActiveAt = Date.now();
+      saveWorkspaces();
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Tab not found' };
+});
+
+// Tab resource metrics IPC
+ipcMain.handle('tab:set-metrics', (_event, { tabId, cpu, memory }) => {
+  for (const browser of browsers) {
+    const tab = browser.tabs.find((t) => t.id === tabId);
+    if (tab) {
+      if (tab.resourceMetrics) {
+        tab.resourceMetrics.cpu = cpu;
+        tab.resourceMetrics.memory = memory;
+      } else {
+        tab.resourceMetrics = { cpu, memory };
+      }
+      saveWorkspaces();
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Tab not found' };
+});
 
 app.whenReady().then(async () => {
   settings = loadSettings();

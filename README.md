@@ -1,4 +1,4 @@
-﻿# 🪐 Zeos WebBrowser
+# 🪐 Zeos WebBrowser
 
 <div align="center">
 
@@ -52,7 +52,13 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
 
 ### ⚡ Produtividade & Utilidades
 - **Painel de Downloads Integrado (Ctrl + J):** Gerenciador de downloads com anel de progresso em tempo real e acesso direto à pasta de arquivos.
-- **Suporte a Extensões do Google Chrome:** Carregamento de extensões descompactadas (*Manifest V3*).
+- **Gerenciador Completo de Extensões (zeos://extensions ou Ctrl + Shift + E):**
+  - Interface inspirada no Google Chrome com pesquisa em tempo real, alternador de Modo de Desenvolvedor e cards detalhados.
+  - Carregamento de extensões descompactadas (*Manifest V2* e *Manifest V3*).
+  - Inspeção direta de Service Workers / Background Pages com DevTools em 1 clique.
+  - Ativar/Desativar extensões com alternadores persistentes e recarregamento individual ou global.
+  - Ferramenta integrada de empacotamento de extensões em `.zip`.
+  - Visualização de atalhos e comandos de teclado configurados.
 - **Métricas do Sistema em Tempo Real:** Visualização do uso de CPU (%) e memória RAM (MB) do navegador diretamente no cabeçalho.
 - **Personalização Visual e Temas:** Paletas de cores elegantes (*Orca*, *Alethe*, etc.), ajuste de zoom global persistente e escolha de fontes monoespaçadas modernas.
 - **Favoritos e Histórico:** Páginas dedicadas e leves para gerenciar seus links preferidos e histórico de acesso.
@@ -72,6 +78,7 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
 | Ctrl + Tab / Ctrl + Shift + Tab | Alternar para a próxima / anterior aba |
 | Ctrl + 1 até Ctrl + 9 | Selecionar aba pelo número de posição |
 | Ctrl + J | Abrir / fechar painel de downloads |
+| Ctrl + Shift + E | Abrir Gerenciador de Extensões (`zeos://extensions`) |
 | Ctrl + H ou Ctrl + , | Abrir Configurações |
 | Ctrl + D ou Ctrl + B | Abrir Favoritos |
 | F5 / Ctrl + R | Recarregar página |
@@ -89,41 +96,45 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
 - [Git](https://git-scm.com/) instalado no sistema.
 
 ### 1. Clonar o Repositório
-`ash
+```bash
 git clone https://github.com/seu-usuario/zeos-webbrowser.git
 cd zeos-webbrowser
-`
+```
 
 ### 2. Instalar Dependências
-`ash
+```bash
 npm install
-`
+```
 
 ### 3. Iniciar o Navegador
 
 - **Modo Desenvolvimento:**
-  `ash
+  ```bash
   npm start
-  `
+  ```
 
 - **No Windows sem terminal (Background Launcher):**
   Dê um duplo clique no arquivo Zeos.vbs ou execute start.bat.
 
 ### 4. Executar Testes Automatizados
-`ash
+```bash
 npm test
-`
+```
 
 ---
 
 ## 🏗️ Arquitetura do Projeto
 
-`
+```
 Zeos WebBrowser/
 ├── src/
 │   ├── assets/              # Logotipos e ícones visuais
+│   ├── extensions/          # Gerenciador avançado de extensões (zeos://extensions)
+│   │   ├── extensions.css   # Estilização do painel de extensões
+│   │   ├── extensions.js    # Lógica de cards, busca, dev mode e packing
+│   │   └── index.html       # Estrutura base da página de extensões
 │   ├── favorites/           # Interface interna do gerenciador de favoritos
-│   ├── settings/            # Interface interna de configurações e extensões
+│   ├── settings/            # Interface interna de configurações e histórico
 │   ├── ui/                  # Interface gráfica minimalista (HTML, CSS e JS)
 │   │   ├── app.css          # Estilização moderna e temas da interface
 │   │   ├── app.js           # Lógica do frontend e eventos de abas / drag & drop
@@ -137,7 +148,7 @@ Zeos WebBrowser/
 ├── package.json             # Metadados e dependências do projeto
 ├── Zeos.vbs                 # Inicializador silencioso para Windows
 └── README.md                # Documentação oficial do projeto
-`
+```
 
 ---
 

@@ -10,7 +10,7 @@ const SEARCH_PROVIDERS = {
 };
 
 function isNavigableProtocol(protocol) {
-  return protocol === 'http:' || protocol === 'https:' || protocol === 'about:' || protocol === 'data:' || protocol === 'blob:' || protocol === 'file:';
+  return protocol === 'http:' || protocol === 'https:' || protocol === 'about:' || protocol === 'data:' || protocol === 'blob:' || protocol === 'file:' || protocol === 'zeos:' || protocol === 'chrome:' || protocol === 'chrome-extension:';
 }
 
 function toNavigationTarget(input, searchProvider = 'duckduckgo') {
