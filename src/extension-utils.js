@@ -127,7 +127,11 @@ function packZip(sourceDir, targetZipPath) {
 function isRemovableRunnerDir(runnerPath, sourcePath) {
   try {
     const resolve = (p) => {
-      try { return fs.realpathSync(p); } catch { return path.resolve(p); }
+      try { return fs.realpathSync(p); } catch {}
+      // The path may not exist yet; resolving its parent still normalizes
+      // tmpdir symlinks (e.g. /var -> /private/var on macOS).
+      try { return path.join(fs.realpathSync(path.dirname(p)), path.basename(p)); } catch {}
+      return path.resolve(p);
     };
     const runner = resolve(runnerPath);
     if (sourcePath && runner === resolve(sourcePath)) return false;
