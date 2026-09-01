@@ -1134,6 +1134,7 @@ class Browser {
     this.tabs = [];
     this.activeId = null;
     this.expanded = false;
+    this.downloads = 0;
     this.downloadsPanelOpen = false;
     this.sessionTimer = undefined;
     this.dragStartBounds = null;
@@ -2120,14 +2121,17 @@ ipcMain.handle('browser:tear-off-tab', (event, { tabId, screenX, screenY } = {})
 
 // Downloads IPC
 ipcMain.handle('downloads:get-summary', () => getDownloadsSummary());
+// Privileged IPC must validate its input: only paths belonging to downloads
+// tracked this session may be opened or revealed from the renderer.
+const isTrackedDownloadPath = (p) => typeof p === 'string' && sessionDownloads.some(d => d.savePath === p);
 ipcMain.handle('downloads:open-file', async (_event, filePath) => {
-  if (typeof filePath === 'string' && fs.existsSync(filePath)) {
+  if (isTrackedDownloadPath(filePath) && fs.existsSync(filePath)) {
     return shell.openPath(filePath);
   }
   return 'Arquivo não encontrado';
 });
 ipcMain.handle('downloads:show-in-folder', (_event, filePath) => {
-  if (typeof filePath === 'string' && fs.existsSync(filePath)) {
+  if (isTrackedDownloadPath(filePath) && fs.existsSync(filePath)) {
     shell.showItemInFolder(filePath);
     return true;
   }
