@@ -920,6 +920,42 @@ async function reloadAllExtensions() {
   }
 }
 
+// Delivers the polyfill's __zeos_trigger_action message to the extension's
+// background context. MV2 background pages are dispatched into directly;
+// MV3 service workers are reached through chrome.runtime.sendMessage from a
+// transient hidden extension-origin context. Resolves false when the action
+// could not be delivered — callers must not hide that failure.
+async function triggerExtensionAction(extensionId, tabInfo) {
+  const { webContents } = require('electron');
+  const payload = JSON.stringify({ __zeos_trigger_action: true, tab: tabInfo });
+  const bg = webContents.getAllWebContents().find(wc => {
+    try { return wc.getType() === 'backgroundPage' && wc.getURL().includes(extensionId); } catch { return false; }
+  });
+  if (bg && !bg.isDestroyed()) {
+    return bg.executeJavaScript(`(() => {
+      const msg = ${payload};
+      const fire = (ev) => Boolean(ev && typeof ev.dispatch === 'function' && (ev.dispatch(msg.tab), true));
+      return fire(self.chrome?.action?.onClicked) || fire(self.chrome?.browserAction?.onClicked);
+    })()`).then(Boolean).catch(() => false);
+  }
+  return new Promise((resolve) => {
+    let helper = new BrowserWindow({ show: false, webPreferences: { session: session.defaultSession } });
+    const finish = (ok) => {
+      try { if (helper && !helper.isDestroyed()) helper.destroy(); } catch {}
+      helper = null;
+      resolve(Boolean(ok));
+    };
+    const timer = setTimeout(() => finish(false), 3000);
+    helper.loadURL(`chrome-extension://${extensionId}/manifest.json`)
+      .then(() => helper.webContents.executeJavaScript(`new Promise((res) => {
+        try { chrome.runtime.sendMessage(${payload}, () => res(true)); setTimeout(() => res(true), 500); }
+        catch (e) { res(false); }
+      })`))
+      .then((ok) => { clearTimeout(timer); finish(ok); })
+      .catch(() => { clearTimeout(timer); finish(false); });
+  });
+}
+
 function inspectBackground(extensionId) {
   const { webContents } = require('electron');
   const allContents = webContents.getAllWebContents();
@@ -2061,7 +2097,10 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
   } else if (details.optionsPage) {
     browser.createWebTab(`chrome-extension://${ext.id}/${details.optionsPage}`, true);
   } else {
-    browser.createSpecialTab('extensions');
+    const activeTab = browser.active();
+    triggerExtensionAction(ext.id, { id: 1, url: activeTab?.url || '', active: true }).then((ok) => {
+      if (!ok) console.error('Extension action dispatch failed for', ext.id);
+    });
   }
 }
 
