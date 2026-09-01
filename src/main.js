@@ -1028,7 +1028,7 @@ class Browser {
         : { frame: false }),
       show: false,
       backgroundColor: settings.appearance.background || '#0b0b0b',
-      icon: path.join(__dirname, 'assets', 'zeos-logo.png'),
+      icon: path.join(__dirname, 'assets', 'zeos-logo-512.png'),
       title: this.privateMode ? 'zeos privado' : 'zeos',
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),

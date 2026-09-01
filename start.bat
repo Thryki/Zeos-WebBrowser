@@ -1,3 +1,3 @@
 @echo off
-cd "C:\Users\Davi\Documents\Zeos WebBrowser"
+cd /d "%~dp0"
 .\node_modules\.bin\electron .

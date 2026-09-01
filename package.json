@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Ultra-lean, privacy-focused, tracker-free Chromium browser with minimal overhead and fluid performance.",
   "main": "src/main.js",
+  "author": "Thryki",
   "license": "MIT",
   "keywords": [
     "browser",
@@ -14,12 +15,66 @@
     "electron",
     "chromium"
   ],
+  "repository": "github:Thryki/Zeos-WebBrowser",
   "scripts": {
     "start": "electron .",
     "check": "node --check src/main.js && node --check src/navigation.js && node --check src/preload.js && node --check src/settings-preload.js && node --check src/ui/app.js && node --check src/settings/settings.js && node --check src/extensions/extensions.js && node --check src/extension-utils.js && node --check src/themes.js",
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test test/**/*.test.js",
+    "icons": "png2icons src/assets/zeos-logo.png build/icon -allwe",
+    "pack": "electron-builder --dir",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux",
+    "release": "electron-builder --publish always"
   },
   "devDependencies": {
-    "electron": "^40.0.0"
+    "electron": "^40.0.0",
+    "electron-builder": "^26.15.3",
+    "png2icons": "^2.0.1"
+  },
+  "build": {
+    "appId": "com.thryki.zeos",
+    "productName": "Zeos",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!src/assets/zeos-logo.png"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "identity": null
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "build/icons",
+      "category": "Network"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Thryki",
+      "repo": "Zeos-WebBrowser"
+    }
   }
 }
