@@ -3,6 +3,8 @@
 const { app, BrowserWindow, WebContentsView, Menu, MenuItem, ipcMain, session, shell, dialog } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
+const os = require('node:os');
 const { HOME_URL, SEARCH_PROVIDERS, toNavigationTarget } = require('./navigation');
 const { THEMES, getTheme } = require('./themes');
 
