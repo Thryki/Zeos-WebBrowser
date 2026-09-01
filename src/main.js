@@ -1306,6 +1306,24 @@ class Browser {
     setupSession(view.webContents.session);
     return view;
   }
+  // Web content must only ever load in views created without the privileged
+  // settings preload, and internal pages only in views created with it.
+  // Crossing that boundary replaces the tab's view instead of reusing it.
+  ensureViewKind(tab, kind) {
+    const isPrivileged = (k) => k === 'settings' || k === 'favorites' || k === 'extensions';
+    if (isPrivileged(kind) === isPrivileged(tab.viewKind)) return;
+    const old = tab.view;
+    const view = this.createView(kind);
+    tab.view = view;
+    tab.viewKind = kind;
+    pageOwners.delete(old.webContents.id);
+    pageOwners.set(view.webContents.id, this);
+    this.window.contentView.removeChildView(old);
+    this.window.contentView.addChildView(view);
+    this.tabEvents(tab);
+    try { old.webContents.close(); } catch {}
+    this.layout();
+  }
   createWebTab(url = settings.initialPage, activate = true) { return this.createTab('web', url, activate); }
   createSpecialTab(kind) { return this.createTab(kind, '', true); }
   createTab(kind, target, activate) {
@@ -1322,6 +1340,7 @@ class Browser {
     const tab = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       kind,
+      viewKind: kind,
       view,
       title: initialTitle,
       url: initialUrl,
@@ -1410,8 +1429,19 @@ class Browser {
       }
     });
     contents.setWindowOpenHandler(({ url }) => {
-      getOwner().createWebTab(url);
+      // Web-content-initiated navigation may only produce http/https tabs —
+      // never file:, zeos:, chrome:, data: or blob: (privilege escalation).
+      if (url === 'about:blank' || /^https?:\/\//i.test(url)) {
+        getOwner().createWebTab(url);
+      }
       return { action: 'deny' };
+    });
+    contents.on('will-navigate', (event, url) => {
+      // Privileged internal views must never navigate to external content.
+      if (tab.viewKind !== 'web' && !url.startsWith('file://')) {
+        event.preventDefault();
+        if (/^https?:\/\//i.test(url)) getOwner().createWebTab(url);
+      }
     });
 
     // Context menu for web pages
@@ -1513,6 +1543,7 @@ class Browser {
       tab.url = 'zeos://extensions';
       tab.loading = false;
       tab.favicon = '';
+      this.ensureViewKind(tab, 'extensions');
       tab.view.webContents.loadFile(path.join(__dirname, 'extensions', 'index.html'));
       this.sendState();
       this.saveSessionSoon();
@@ -1524,6 +1555,7 @@ class Browser {
       tab.url = 'zeos://settings';
       tab.loading = false;
       tab.favicon = '';
+      this.ensureViewKind(tab, 'settings');
       tab.view.webContents.loadFile(path.join(__dirname, 'settings', 'index.html'));
       this.sendState();
       this.saveSessionSoon();
@@ -1535,12 +1567,14 @@ class Browser {
       tab.url = 'zeos://favoritos';
       tab.loading = false;
       tab.favicon = '';
+      this.ensureViewKind(tab, 'favorites');
       tab.view.webContents.loadFile(path.join(__dirname, 'favorites', 'index.html'));
       this.sendState();
       this.saveSessionSoon();
       return;
     }
     tab.kind = 'web';
+    this.ensureViewKind(tab, 'web');
     const { url } = toNavigationTarget(target, settings.searchProvider);
     tab.url = url;
     tab.loading = true;
