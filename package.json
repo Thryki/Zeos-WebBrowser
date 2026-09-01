@@ -1,6 +1,6 @@
 {
   "name": "zeos-webbrowser",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Ultra-lean, privacy-focused, tracker-free Chromium browser with minimal overhead and fluid performance.",
   "main": "src/main.js",
   "author": "Thryki",
@@ -47,8 +47,18 @@
     "asar": true,
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico"
     },
@@ -59,15 +69,29 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] },
-        { "target": "zip", "arch": ["arm64", "x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
       "identity": null
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "build/icons",
       "category": "Network"
     },
