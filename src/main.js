@@ -668,6 +668,7 @@ async function loadPreparedExtension(sourcePath) {
   const ext = await session.defaultSession.loadExtension(runnerPath, { allowFileAccess: true });
   extensionRunnerMap.set(sourcePath, { runnerPath, id: ext.id });
   extensionSourceMap.set(ext.id, sourcePath);
+  invalidateExtensionsCache();
   return ext;
 }
 
@@ -799,7 +800,14 @@ async function loadUnpackedExtension(win) {
   }
 }
 
+// sendState() calls this on every tab/download event; without a cache each
+// call re-reads every manifest and re-encodes every icon from disk (sync I/O
+// on the hot path). Invalidated whenever the extension set changes.
+let installedExtensionsCache = null;
+function invalidateExtensionsCache() { installedExtensionsCache = null; }
+
 function getInstalledExtensions() {
+  if (installedExtensionsCache) return installedExtensionsCache;
   const exts = session.defaultSession.getAllExtensions();
   const loadedMap = new Map();
   const result = [];
@@ -829,6 +837,7 @@ function getInstalledExtensions() {
     }
   }
 
+  installedExtensionsCache = result;
   return result;
 }
 
@@ -849,6 +858,7 @@ function removeExtension(extensionId) {
         extensionSourceMap.delete(extensionId);
         saveSettingsSoon();
       }
+      invalidateExtensionsCache();
       notifySettings();
       return true;
     }
@@ -876,6 +886,7 @@ async function toggleExtensionEnable(extensionId, enabled) {
       }
     }
     saveSettingsSoon();
+    invalidateExtensionsCache();
     notifySettings();
     return true;
   } catch (err) {
@@ -893,6 +904,7 @@ async function reloadExtension(extensionId) {
       if (!settings.disabledExtensions.includes(target.path)) {
         await loadPreparedExtension(target.path);
       }
+      invalidateExtensionsCache();
       notifySettings();
       return true;
     }
@@ -912,6 +924,7 @@ async function reloadAllExtensions() {
         await loadPreparedExtension(realPath);
       }
     }
+    invalidateExtensionsCache();
     notifySettings();
     return true;
   } catch (err) {
