@@ -134,7 +134,20 @@ function saveSettings() {
   writeJson('settings.json', settings);
 }
 
-function getSystemStats() {
+// app.getAppMetrics() enumerates every process synchronously. sendState()
+// runs on each tab/title/loading/download event, so the result is cached and
+// only refreshed at roughly the rate the stats timer pushes it.
+let systemStatsCache = null;
+let systemStatsAt = 0;
+function getSystemStats(maxAgeMs = 2000) {
+  if (systemStatsCache && Date.now() - systemStatsAt < maxAgeMs) return systemStatsCache;
+  const stats = computeSystemStats();
+  systemStatsCache = stats;
+  systemStatsAt = Date.now();
+  return stats;
+}
+
+function computeSystemStats() {
   let ramMB = 0;
   let cpuPercent = 0;
   try {
@@ -282,7 +295,25 @@ function addHistory(url, title, opts = {}) {
   };
   settings.history = [{ ...entry }, ...settings.history.filter((entry) => entry.url !== url)].slice(0, 2000);
   saveSettingsSoon();
-  notifySettings();
+  // A visit changes neither zoom nor tab state, so the full notifySettings()
+  // fan-out (zoom re-apply + relayout + sendState per window) is wasted work
+  // on every navigation. Only the internal pages that render history need it.
+  notifyHistorySoon();
+}
+
+let historyNotifyTimer;
+function notifyHistorySoon() {
+  clearTimeout(historyNotifyTimer);
+  historyNotifyTimer = setTimeout(() => {
+    const payload = { ...copy(settings), themes: THEMES };
+    for (const browser of browsers) {
+      for (const tab of browser.tabs) {
+        if ((tab.kind === 'settings' || tab.kind === 'favorites' || tab.kind === 'extensions') && !tab.view.webContents.isDestroyed()) {
+          tab.view.webContents.send('settings:changed', payload);
+        }
+      }
+    }
+  }, 1000);
 }
 
 // The session holds every open window. Writing only the window that happened
@@ -1033,7 +1064,20 @@ function getDownloadsSummary() {
   };
 }
 
+// DownloadItem 'updated' fires continuously; without throttling each chunk
+// fanned a full state broadcast plus a downloads message to every window.
+let downloadsBroadcastTimer;
+function broadcastDownloadsSoon() {
+  if (downloadsBroadcastTimer) return;
+  downloadsBroadcastTimer = setTimeout(() => {
+    downloadsBroadcastTimer = null;
+    broadcastDownloads();
+  }, 250);
+}
+
 function broadcastDownloads() {
+  clearTimeout(downloadsBroadcastTimer);
+  downloadsBroadcastTimer = null;
   const summary = getDownloadsSummary();
   for (const browser of browsers) {
     browser.sendState();
@@ -1098,7 +1142,7 @@ function setupSession(browserSession) {
       downloadRecord.receivedBytes = item.getReceivedBytes();
       downloadRecord.totalBytes = item.getTotalBytes() || downloadRecord.totalBytes;
       downloadRecord.state = state;
-      broadcastDownloads();
+      broadcastDownloadsSoon();
     });
 
     item.once('done', (_evt, state) => {
@@ -1245,8 +1289,12 @@ class Browser {
     }
 
     for (const tab of this.tabs) {
+      const isActive = tab.id === this.activeId;
+      // Parking a view off-screen leaves Chromium treating it as visible, so
+      // background tabs keep full-rate timers, rAF and video decoding.
+      if (typeof tab.view.setVisible === 'function') tab.view.setVisible(isActive);
       tab.view.setBounds(
-        tab.id === this.activeId
+        isActive
           ? { x: 0, y: top, width, height: Math.max(0, height - top) }
           : { x: 0, y: height + 1, width: 0, height: 0 }
       );
@@ -2442,7 +2490,7 @@ app.whenReady().then(async () => {
 
   // System stats timer
   setInterval(() => {
-    const stats = getSystemStats();
+    const stats = getSystemStats(0);
     for (const browser of browsers) {
       if (!browser.chrome.webContents.isDestroyed()) {
         browser.chrome.webContents.send('browser:system-stats', stats);
