@@ -48,6 +48,18 @@ contextBridge.exposeInMainWorld('zeos', {
     ipcRenderer.on('browser:system-stats', listener);
     return () => ipcRenderer.removeListener('browser:system-stats', listener);
   },
+  find: (text, options) => ipcRenderer.invoke('browser:find', { text, options }),
+  stopFind: () => ipcRenderer.invoke('browser:stop-find'),
+  setFindOpen: (open) => ipcRenderer.invoke('browser:set-find-open', open),
+  onOpenFind: (handler) => {
+    ipcRenderer.on('browser:open-find', handler);
+    return () => ipcRenderer.removeListener('browser:open-find', handler);
+  },
+  onFindResult: (handler) => {
+    const listener = (_event, result) => handler(result);
+    ipcRenderer.on('browser:find-result', listener);
+    return () => ipcRenderer.removeListener('browser:find-result', listener);
+  },
   workspaces: {
     list: () => ipcRenderer.invoke('workspaces:list'),
     create: (name, icon) => ipcRenderer.invoke('workspaces:create', { name, icon }),

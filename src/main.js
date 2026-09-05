@@ -12,6 +12,7 @@ const WORKSPACES_FILE = 'workspaces.json';
 
 const TAB_HEIGHT = 38;
 const ADDRESS_HEIGHT = 38;
+const FIND_HEIGHT = 40;
 const DEFAULT_BOUNDS = { width: 1200, height: 760 };
 const FONTS = ['IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New'];
 
@@ -1183,6 +1184,7 @@ class Browser {
     this.expanded = false;
     this.downloads = 0;
     this.htmlFullscreen = false;
+    this.findOpen = false;
     this.downloadsPanelOpen = false;
     this.sessionTimer = undefined;
     this.dragStartBounds = null;
@@ -1287,7 +1289,7 @@ class Browser {
     if (this.window.isDestroyed()) return;
     const { width, height } = this.window.getContentBounds();
     const zoomFactor = (settings?.appearance?.zoomLevel || 100) / 100;
-    const baseTop = TAB_HEIGHT + (this.expanded ? ADDRESS_HEIGHT : 0);
+    const baseTop = TAB_HEIGHT + (this.expanded ? ADDRESS_HEIGHT : 0) + (this.findOpen ? FIND_HEIGHT : 0);
     // A page in HTML5 fullscreen (video players, games) owns the whole window.
     const top = this.htmlFullscreen ? 0 : Math.round(baseTop * zoomFactor);
 
@@ -1553,6 +1555,12 @@ class Browser {
         getOwner().sendState();
       }
     });
+    contents.on('found-in-page', (_event, result) => {
+      const owner = getOwner();
+      if (owner.chrome && !owner.chrome.webContents.isDestroyed()) {
+        owner.chrome.webContents.send('browser:find-result', { matches: result.matches, activeMatchOrdinal: result.activeMatchOrdinal });
+      }
+    });
     contents.on('enter-html-full-screen', () => { const owner = getOwner(); owner.htmlFullscreen = true; owner.layout(); });
     contents.on('leave-html-full-screen', () => { const owner = getOwner(); owner.htmlFullscreen = false; owner.layout(); });
     contents.on('page-favicon-updated', (_event, favicons) => {
@@ -1605,6 +1613,7 @@ class Browser {
     if (input.type !== 'keyDown' || input.isAutoRepeat) return;
     const key = input.key.toLowerCase(); const ctrl = input.control || input.meta; const tab = this.active();
     if (key === 'shift') { event.preventDefault(); this.toggleChrome(); return; }
+    if (ctrl && key === 'f') { event.preventDefault(); this.chrome.webContents.send('browser:open-find'); return; }
     if (ctrl && key === 'l') { event.preventDefault(); this.setExpanded(true, true); return; }
     if (ctrl && key === 't') { event.preventDefault(); this.createWebTab(); return; }
     if (ctrl && key === 'n') {
@@ -2255,6 +2264,33 @@ ipcMain.handle('browser:attach-tab', (event, { tabId, newIndex } = {}) => chrome
 ipcMain.handle('browser:tear-off-tab', (event, { tabId, screenX, screenY } = {}) => chromeOwners.get(event.sender.id)?.tearOffTab(tabId, screenX, screenY));
 
 // Downloads IPC
+// Find in page
+ipcMain.handle('browser:find', (event, { text, options } = {}) => {
+  const browser = chromeOwners.get(event.sender.id);
+  const contents = browser?.active()?.view.webContents;
+  if (!contents || contents.isDestroyed() || typeof text !== 'string' || !text) return false;
+  contents.findInPage(text, {
+    forward: options?.forward !== false,
+    findNext: Boolean(options?.findNext),
+    matchCase: false
+  });
+  return true;
+});
+ipcMain.handle('browser:stop-find', (event) => {
+  const browser = chromeOwners.get(event.sender.id);
+  for (const tab of browser?.tabs || []) {
+    if (!tab.view.webContents.isDestroyed()) tab.view.webContents.stopFindInPage('clearSelection');
+  }
+  return true;
+});
+ipcMain.handle('browser:set-find-open', (event, open) => {
+  const browser = chromeOwners.get(event.sender.id);
+  if (!browser) return false;
+  browser.findOpen = Boolean(open);
+  browser.layout();
+  return true;
+});
+
 ipcMain.handle('downloads:get-summary', () => getDownloadsSummary());
 // Privileged IPC must validate its input: only paths belonging to downloads
 // tracked this session may be opened or revealed from the renderer.

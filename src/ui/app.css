@@ -732,3 +732,51 @@ body.platform-darwin .window-controls {
   from { opacity: 0.3; }
   to { opacity: 1; }
 }
+
+/* ==========================================================================
+   FIND IN PAGE
+   ========================================================================== */
+.find-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.find-bar[hidden] { display: none; }
+
+.find-bar .find-icon {
+  flex: none;
+  opacity: 0.55;
+  margin-left: 4px;
+}
+
+#find-input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+
+#find-input:focus { border-color: var(--border-focus); }
+
+#find-input.no-match { color: #f87171; }
+
+.find-count {
+  flex: none;
+  min-width: 56px;
+  text-align: right;
+  font-size: 12px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}

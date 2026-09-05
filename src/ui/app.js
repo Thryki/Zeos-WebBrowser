@@ -778,10 +778,27 @@ window.addEventListener('keydown', (event) => {
   const modKey = event.ctrlKey || event.metaKey;
 
   if (key === 'escape') {
+    if (isFindOpen()) {
+      closeFind();
+      return;
+    }
     if (isPanelOpen()) {
       closeDownloadsPanel();
       return;
     }
+  }
+
+  if (modKey && key === 'f') {
+    event.preventDefault();
+    openFind();
+    return;
+  }
+
+  if (key === 'f3') {
+    event.preventDefault();
+    if (isFindOpen()) runFind(findInput.value, { findNext: true, forward: !event.shiftKey });
+    else openFind();
+    return;
   }
 
   if (key === 'shift' && !event.repeat) {
@@ -882,3 +899,68 @@ window.addEventListener('keydown', (event) => {
 
 // Load initial downloads state
 window.zeos.downloads.getSummary().then(handleDownloadsUpdate).catch(() => {});
+
+// Find in page
+const findBar = document.querySelector('#find-bar');
+const findInput = document.querySelector('#find-input');
+const findCount = document.querySelector('#find-count');
+let findRequestId = 0;
+
+function isFindOpen() { return findBar && !findBar.hidden; }
+
+function openFind() {
+  if (!findBar) return;
+  const selection = String(window.getSelection?.() || '').trim();
+  findBar.hidden = false;
+  window.zeos.setFindOpen(true);
+  if (selection) findInput.value = selection;
+  findInput.focus();
+  findInput.select();
+  if (findInput.value) runFind(findInput.value, {});
+}
+
+function closeFind() {
+  if (!findBar || findBar.hidden) return;
+  findBar.hidden = true;
+  findCount.textContent = '';
+  findInput.classList.remove('no-match');
+  window.zeos.stopFind();
+  window.zeos.setFindOpen(false);
+}
+
+function runFind(text, options) {
+  if (!text) {
+    findCount.textContent = '';
+    findInput.classList.remove('no-match');
+    window.zeos.stopFind();
+    return;
+  }
+  findRequestId += 1;
+  window.zeos.find(text, options);
+}
+
+if (findBar) {
+  findInput.addEventListener('input', () => runFind(findInput.value, {}));
+  findInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runFind(findInput.value, { findNext: true, forward: !event.shiftKey });
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeFind();
+    }
+  });
+  document.querySelector('#find-next').addEventListener('click', () => runFind(findInput.value, { findNext: true, forward: true }));
+  document.querySelector('#find-prev').addEventListener('click', () => runFind(findInput.value, { findNext: true, forward: false }));
+  document.querySelector('#find-close').addEventListener('click', closeFind);
+
+  window.zeos.onFindResult((result) => {
+    if (!isFindOpen()) return;
+    const total = result.matches || 0;
+    const current = total ? (result.activeMatchOrdinal || 0) : 0;
+    findCount.textContent = findInput.value ? `${current}/${total}` : '';
+    findInput.classList.toggle('no-match', Boolean(findInput.value) && total === 0);
+  });
+}
+
+window.zeos.onOpenFind(() => openFind());
