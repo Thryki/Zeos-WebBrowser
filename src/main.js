@@ -86,8 +86,30 @@ const activeDownloadItems = new Map();
 
 function userFile(name) { return path.join(app.getPath('userData'), name); }
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
-function readJson(name, fallback) { try { return JSON.parse(fs.readFileSync(userFile(name), 'utf8')); } catch { return fallback; } }
-function writeJson(name, data) { try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(userFile(name), JSON.stringify(data), 'utf8'); } catch (error) { console.error(`Error writing ${name}:`, error); } }
+// State files are read through the previous good copy and never silently
+// discarded: a truncated write (crash/power loss) would otherwise reset
+// settings — losing extensions and history — on the next launch.
+function readJson(name, fallback) {
+  for (const candidate of [name, `${name}.bak`]) {
+    let raw;
+    try { raw = fs.readFileSync(userFile(candidate), 'utf8'); } catch { continue; }
+    try { return JSON.parse(raw); } catch (error) {
+      console.error(`Corrupted ${candidate}, keeping it as ${candidate}.corrupt:`, error.message);
+      try { fs.renameSync(userFile(candidate), userFile(`${candidate}.corrupt`)); } catch {}
+    }
+  }
+  return fallback;
+}
+function writeJson(name, data) {
+  try {
+    fs.mkdirSync(app.getPath('userData'), { recursive: true });
+    const target = userFile(name);
+    const tmp = `${target}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data), 'utf8');
+    try { fs.copyFileSync(target, `${target}.bak`); } catch {}
+    fs.renameSync(tmp, target);
+  } catch (error) { console.error(`Error writing ${name}:`, error); }
+}
 
 function loadSettings() {
   const stored = readJson('settings.json', {});
@@ -109,7 +131,7 @@ function loadSettings() {
 function saveSettingsSoon() { clearTimeout(settingsTimer); settingsTimer = setTimeout(saveSettings, 250); }
 function saveSettings() {
   clearTimeout(settingsTimer);
-  try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(userFile('settings.json'), JSON.stringify(settings), 'utf8'); } catch (error) { console.error(error); }
+  writeJson('settings.json', settings);
 }
 
 function getSystemStats() {
@@ -942,9 +964,24 @@ function broadcastDownloads() {
 function setupSession(browserSession) {
   if (configuredSessions.has(browserSession)) return;
   configuredSessions.add(browserSession);
-  browserSession.setPermissionRequestHandler((_contents, permission, callback) => callback(Boolean(
-    (permission === 'notifications' && settings.permissions.notifications) || (permission === 'media' && settings.permissions.media)
-  )));
+  // Electron's spellchecker downloads Hunspell dictionaries from a Google CDN
+  // on first use; a tracker-free browser must not make that request.
+  try { browserSession.setSpellCheckerEnabled(false); } catch {}
+
+  // Capabilities that are part of ordinary browsing and carry no privacy cost
+  // are granted; everything sensitive stays behind the explicit settings
+  // toggles and is denied otherwise.
+  const ALWAYS_ALLOWED = new Set(['fullscreen', 'pointerLock', 'clipboard-sanitized-write']);
+  const allowPermission = (permission) => (
+    ALWAYS_ALLOWED.has(permission) ||
+    (permission === 'notifications' && settings.permissions.notifications) ||
+    (permission === 'media' && settings.permissions.media)
+  );
+  browserSession.setPermissionRequestHandler((_contents, permission, callback) => callback(Boolean(allowPermission(permission))));
+  // Without a check handler Electron reports every permission as granted, so
+  // permissions.query()/Notification.permission would contradict the answers
+  // above and device labels would leak from enumerateDevices().
+  browserSession.setPermissionCheckHandler((_contents, permission) => Boolean(allowPermission(permission)));
 
   browserSession.on('will-download', (_event, item, source) => {
     const downloadId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1007,6 +1044,7 @@ class Browser {
     this.activeId = null;
     this.expanded = false;
     this.downloads = 0;
+    this.htmlFullscreen = false;
     this.downloadsPanelOpen = false;
     this.sessionTimer = undefined;
     this.dragStartBounds = null;
@@ -1101,9 +1139,12 @@ class Browser {
     const { width, height } = this.window.getContentBounds();
     const zoomFactor = (settings?.appearance?.zoomLevel || 100) / 100;
     const baseTop = TAB_HEIGHT + (this.expanded ? ADDRESS_HEIGHT : 0);
-    const top = Math.round(baseTop * zoomFactor);
+    // A page in HTML5 fullscreen (video players, games) owns the whole window.
+    const top = this.htmlFullscreen ? 0 : Math.round(baseTop * zoomFactor);
 
-    if (this.downloadsPanelOpen) {
+    if (this.htmlFullscreen) {
+      this.chrome.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    } else if (this.downloadsPanelOpen) {
       this.window.contentView.addChildView(this.chrome);
       this.chrome.setBounds({ x: 0, y: 0, width, height: Math.min(height, Math.round(520 * zoomFactor)) });
     } else {
@@ -1322,7 +1363,7 @@ class Browser {
         try {
           if (!prevUrl || new URL(prevUrl).hostname !== new URL(url).hostname) tab.favicon = '';
         } catch { tab.favicon = ''; }
-        addHistory(url, tab.title);
+        if (!getOwner().privateMode) addHistory(url, tab.title);
         const owner = getOwner();
         owner.sendState();
         owner.saveSessionSoon();
@@ -1331,7 +1372,7 @@ class Browser {
     contents.on('did-navigate-in-page', (_event, url) => {
       if (tab.kind === 'web') {
         tab.url = url;
-        addHistory(url, tab.title);
+        if (!getOwner().privateMode) addHistory(url, tab.title);
         const owner = getOwner();
         owner.sendState();
         owner.saveSessionSoon();
@@ -1345,6 +1386,8 @@ class Browser {
         getOwner().sendState();
       }
     });
+    contents.on('enter-html-full-screen', () => { const owner = getOwner(); owner.htmlFullscreen = true; owner.layout(); });
+    contents.on('leave-html-full-screen', () => { const owner = getOwner(); owner.htmlFullscreen = false; owner.layout(); });
     contents.on('page-favicon-updated', (_event, favicons) => {
       if (Array.isArray(favicons) && favicons.length > 0) {
         tab.favicon = favicons[0];
