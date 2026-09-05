@@ -572,6 +572,36 @@ function prepareExtensionRunnerDir(sourceDir) {
           }
         }
       }
+      // HTML entry points (MV2 background pages, popups, options) run in their
+      // own contexts and need the polyfill too, otherwise chrome.action &
+      // friends are undefined the moment the popup opens.
+      const polyfillFile = 'zeos-polyfill.js';
+      const htmlEntries = [
+        manifest.background?.page,
+        manifest.action?.default_popup,
+        manifest.browser_action?.default_popup,
+        manifest.page_action?.default_popup,
+        manifest.options_page,
+        manifest.options_ui?.page,
+        manifest.devtools_page,
+        manifest.side_panel?.default_path
+      ].filter((entry) => typeof entry === 'string' && entry);
+      if (htmlEntries.length) {
+        fs.writeFileSync(path.join(runnerDir, polyfillFile), ZEOS_EXTENSION_POLYFILL, 'utf8');
+        for (const entry of new Set(htmlEntries)) {
+          const htmlPath = path.join(runnerDir, entry.split('?')[0].split('#')[0]);
+          if (!fs.existsSync(htmlPath)) continue;
+          const rel = path.relative(path.dirname(htmlPath), path.join(runnerDir, polyfillFile)).replace(/\\/g, '/');
+          const tag = `<script src="${rel}"></script>`;
+          const html = fs.readFileSync(htmlPath, 'utf8');
+          if (html.includes(polyfillFile)) continue;
+          // The polyfill must run before any of the page's own scripts.
+          const injected = /<head[^>]*>/i.test(html)
+            ? html.replace(/<head[^>]*>/i, (head) => `${head}\n${tag}`)
+            : `${tag}\n${html}`;
+          fs.writeFileSync(htmlPath, injected, 'utf8');
+        }
+      }
     }
     return runnerDir;
   } catch (err) {
@@ -722,7 +752,10 @@ async function loadUnpackedExtension(win) {
 // call re-reads every manifest and re-encodes every icon from disk (sync I/O
 // on the hot path). Invalidated whenever the extension set changes.
 let installedExtensionsCache = null;
-function invalidateExtensionsCache() { installedExtensionsCache = null; }
+function invalidateExtensionsCache() {
+  installedExtensionsCache = null;
+  destroyExtensionBridges(); // bridges belong to a specific loaded instance
+}
 
 function getInstalledExtensions() {
   if (installedExtensionsCache) return installedExtensionsCache;
@@ -856,6 +889,30 @@ async function reloadAllExtensions() {
 // MV3 service workers are reached through chrome.runtime.sendMessage from a
 // transient hidden extension-origin context. Resolves false when the action
 // could not be delivered — callers must not hide that failure.
+const extensionBridges = new Map();
+
+function destroyExtensionBridges(extensionId = null) {
+  for (const [id, win] of [...extensionBridges]) {
+    if (extensionId && id !== extensionId) continue;
+    extensionBridges.delete(id);
+    try { if (win && !win.isDestroyed()) win.destroy(); } catch {}
+  }
+}
+
+async function getExtensionBridge(extensionId) {
+  const existing = extensionBridges.get(extensionId);
+  if (existing && !existing.isDestroyed()) return existing;
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { session: session.defaultSession, contextIsolation: true, nodeIntegration: false }
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
+  await win.loadURL(`chrome-extension://${extensionId}/manifest.json`);
+  extensionBridges.set(extensionId, win);
+  return win;
+}
+
 async function triggerExtensionAction(extensionId, tabInfo) {
   const { webContents } = require('electron');
   const payload = JSON.stringify({ __zeos_trigger_action: true, tab: tabInfo });
@@ -869,22 +926,21 @@ async function triggerExtensionAction(extensionId, tabInfo) {
       return fire(self.chrome?.action?.onClicked) || fire(self.chrome?.browserAction?.onClicked);
     })()`).then(Boolean).catch(() => false);
   }
-  return new Promise((resolve) => {
-    let helper = new BrowserWindow({ show: false, webPreferences: { session: session.defaultSession } });
-    const finish = (ok) => {
-      try { if (helper && !helper.isDestroyed()) helper.destroy(); } catch {}
-      helper = null;
-      resolve(Boolean(ok));
-    };
-    const timer = setTimeout(() => finish(false), 3000);
-    helper.loadURL(`chrome-extension://${extensionId}/manifest.json`)
-      .then(() => helper.webContents.executeJavaScript(`new Promise((res) => {
-        try { chrome.runtime.sendMessage(${payload}, () => res(true)); setTimeout(() => res(true), 500); }
-        catch (e) { res(false); }
-      })`))
-      .then((ok) => { clearTimeout(timer); finish(ok); })
-      .catch(() => { clearTimeout(timer); finish(false); });
-  });
+  // MV3 service workers are reached from a hidden page on the extension's own
+  // origin. The bridge is kept alive per extension — spawning and destroying a
+  // renderer process on every toolbar click cost ~100-300ms and tens of MB.
+  try {
+    const bridge = await getExtensionBridge(extensionId);
+    return await bridge.webContents.executeJavaScript(`new Promise((res) => {
+      try {
+        chrome.runtime.sendMessage(${payload}, () => { void chrome.runtime.lastError; res(true); });
+        setTimeout(() => res(true), 400);
+      } catch (e) { res(false); }
+    })`).then(Boolean);
+  } catch (error) {
+    destroyExtensionBridges(extensionId);
+    return false;
+  }
 }
 
 function inspectBackground(extensionId) {
@@ -2005,10 +2061,15 @@ class Browser {
 
 let activeExtensionPopup = null;
 
+function closePopup() {
+  const popup = activeExtensionPopup;
+  activeExtensionPopup = null;
+  try { if (popup && !popup.isDestroyed()) popup.close(); } catch {}
+}
+
 function openExtensionAction(browser, extensionId, anchorBounds = {}) {
   if (activeExtensionPopup && !activeExtensionPopup.isDestroyed()) {
-    activeExtensionPopup.close();
-    activeExtensionPopup = null;
+    closePopup();
     return;
   }
 
@@ -2056,18 +2117,50 @@ function openExtensionAction(browser, extensionId, anchorBounds = {}) {
       }
     });
 
+    const popupContents = activeExtensionPopup.webContents;
+    // A link or chrome.tabs.create inside the popup would otherwise spawn an
+    // unmanaged chromeless always-on-top window; route web URLs to a tab.
+    popupContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url)) browser.createWebTab(url, true);
+      closePopup();
+      return { action: 'deny' };
+    });
+    popupContents.on('will-navigate', (event, url) => {
+      if (url.startsWith(`chrome-extension://${ext.id}/`)) return;
+      event.preventDefault();
+      if (/^https?:\/\//i.test(url)) browser.createWebTab(url, true);
+      closePopup();
+    });
+    popupContents.on('before-input-event', (_event, input) => {
+      if (input.type === 'keyDown' && input.key === 'Escape') closePopup();
+    });
+
     activeExtensionPopup.loadURL(popupUrl);
-    activeExtensionPopup.on('blur', () => {
-      if (activeExtensionPopup && !activeExtensionPopup.isDestroyed()) {
-        activeExtensionPopup.close();
-      }
+    activeExtensionPopup.on('blur', closePopup);
+    // A popup anchored to a window that moves or resizes would float detached.
+    const reanchor = () => closePopup();
+    browser.window.on('move', reanchor);
+    browser.window.on('resize', reanchor);
+    activeExtensionPopup.on('closed', () => {
+      browser.window.removeListener('move', reanchor);
+      browser.window.removeListener('resize', reanchor);
       activeExtensionPopup = null;
     });
   } else {
     // Chrome behavior: a click on the action icon fires onClicked in the
     // extension. The options page is reachable only via the context menu.
     const activeTab = browser.active();
-    triggerExtensionAction(ext.id, { id: 1, url: activeTab?.url || '', active: true }).then((ok) => {
+    // Electron tab ids are webContents ids; a made-up id breaks
+    // chrome.tabs.sendMessage / scripting.executeScript on the real tab.
+    const contents = activeTab && !activeTab.view.webContents.isDestroyed() ? activeTab.view.webContents : null;
+    triggerExtensionAction(ext.id, {
+      id: contents ? contents.id : -1,
+      windowId: browser.window.id,
+      url: activeTab?.url || '',
+      title: activeTab?.title || '',
+      index: activeTab ? Math.max(0, browser.tabs.indexOf(activeTab)) : 0,
+      active: true
+    }).then((ok) => {
       if (!ok) console.error('Extension action dispatch failed for', ext.id);
     });
   }
