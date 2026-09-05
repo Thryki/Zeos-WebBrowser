@@ -285,13 +285,39 @@ function addHistory(url, title, opts = {}) {
   notifySettings();
 }
 
-function readSession() {
-  const stored = readJson('session.json', {});
-  const tabs = Array.isArray(stored.tabs) ? stored.tabs.filter((tab) => typeof tab.url === 'string' && tab.url).map((tab) => ({ ...tab, pinned: Boolean(tab.pinned) })) : [];
-  return { bounds: stored.bounds || DEFAULT_BOUNDS, tabs, activeIndex: Math.max(0, Number(stored.activeIndex) || 0) };
+// The session holds every open window. Writing only the window that happened
+// to save last meant quitting with more than one window silently dropped all
+// but one window's tabs.
+let sessionFrozen = false;
+
+function readSessionWindows() {
+  return normalizeSessionWindows(readJson('session.json', {}), DEFAULT_BOUNDS);
+}
+
+function sessionEntryFor(browser) {
+  return buildSessionEntry({
+    bounds: browser.window.getBounds(),
+    tabs: browser.tabs,
+    activeId: browser.activeId,
+    fallbackUrl: settings.initialPage
+  });
+}
+
+function writeSessionSnapshot() {
+  if (sessionFrozen) return;
+  const windows = [];
+  for (const browser of browsers) {
+    if (browser.privateMode || browser.sessionDropped) continue;
+    if (!browser.window || browser.window.isDestroyed()) continue;
+    const entry = sessionEntryFor(browser);
+    if (entry.tabs.length) windows.push(entry);
+  }
+  if (!windows.length) return; // never replace a good session with an empty one
+  writeJson('session.json', { version: 2, windows });
 }
 
 const { crc32, packZip, isRemovableRunnerDir } = require('./extension-utils');
+const { normalizeSessionWindows, buildSessionEntry } = require('./session-store');
 
 const ZEOS_EXTENSION_POLYFILL = `
 // === ZEOS CHROME EXTENSION POLYFILL ===
@@ -1050,10 +1076,15 @@ class Browser {
     this.dragStartBounds = null;
     this.dragStartMouse = null;
     this.lastMenuClosedAt = 0;
+    this.sessionDropped = false;
+    sessionFrozen = false; // a new window resumes session tracking (macOS reactivation)
     this.open();
   }
   open() {
-    const sessionData = (!this.privateMode && this.restoreSession) ? readSession() : { bounds: DEFAULT_BOUNDS, tabs: [], activeIndex: 0 };
+    const restoreEntry = (!this.privateMode && this.restoreSession)
+      ? (typeof this.restoreSession === 'object' ? this.restoreSession : (readSessionWindows()[0] || null))
+      : null;
+    const sessionData = restoreEntry || { bounds: DEFAULT_BOUNDS, tabs: [], activeIndex: 0 };
     const bounds = this.initialBounds || sessionData.bounds;
     this.window = new BrowserWindow({
       ...bounds,
@@ -1076,7 +1107,13 @@ class Browser {
     });
     browsers.add(this);
     this.window.on('resize', () => this.layout());
-    this.window.on('close', () => this.saveSession());
+    this.window.on('close', () => {
+      // Closing one window of several discards just that window; closing the
+      // last one is effectively a quit, so its tabs are kept for next launch.
+      if (browsers.size > 1) this.sessionDropped = true;
+      writeSessionSnapshot();
+      if (browsers.size <= 1) sessionFrozen = true;
+    });
     this.window.on('closed', () => this.destroy());
     this.chrome = new WebContentsView({
       webPreferences: {
@@ -1714,9 +1751,8 @@ class Browser {
   saveSessionSoon() { if (!this.privateMode) { clearTimeout(this.sessionTimer); this.sessionTimer = setTimeout(() => this.saveSession(), 300); } }
   saveSession() {
     clearTimeout(this.sessionTimer);
-    if (this.privateMode || !this.window || this.window.isDestroyed()) return;
-    const data = { bounds: this.window.getBounds(), activeIndex: Math.max(0, this.tabs.findIndex((tab) => tab.id === this.activeId)), tabs: this.tabs.filter((tab) => tab.kind === 'web').map((tab) => ({ url: tab.url || settings.initialPage, pinned: Boolean(tab.pinned), workspaceId: tab.workspaceId || null })) };
-    try { fs.writeFileSync(userFile('session.json'), JSON.stringify(data), 'utf8'); } catch (error) { console.error(error); }
+    if (this.privateMode) return;
+    writeSessionSnapshot();
   }
   showMenu(menu, point = {}) {
     const zoom = (settings.appearance?.zoomLevel || 100) / 100;
@@ -2306,7 +2342,9 @@ app.whenReady().then(async () => {
   }
   setupSession(session.defaultSession);
   await loadSavedExtensions();
-  new Browser(false, true);
+  const savedWindows = readSessionWindows();
+  if (savedWindows.length) for (const entry of savedWindows) new Browser(false, entry);
+  else new Browser(false, true);
   app.on('activate', () => { if (!browsers.size) new Browser(false, true); });
 
   // System stats timer
@@ -2324,5 +2362,9 @@ app.whenReady().then(async () => {
   app.quit();
 });
 
-app.on('before-quit', () => { for (const browser of browsers) browser.saveSession(); saveSettings(); });
+app.on('before-quit', () => {
+  writeSessionSnapshot(); // snapshot every open window before any of them closes
+  sessionFrozen = true;
+  saveSettings();
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
