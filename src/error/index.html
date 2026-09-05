@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Falha ao carregar</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid; place-items: center; padding: 24px;
+    font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg, #0b0b0b); color: var(--fg, #f5f5f5);
+  }
+  main { max-width: 560px; text-align: left; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  p { margin: 0 0 10px; line-height: 1.55; color: var(--fg, #f5f5f5); opacity: .78; font-size: 13px; }
+  .url {
+    display: block; margin: 14px 0 18px; padding: 10px 12px; font-size: 12px;
+    background: var(--panel, #181818); border: 1px solid var(--border, #2a2a2a);
+    border-radius: 8px; word-break: break-all; opacity: .9;
+  }
+  .code { opacity: .55; font-size: 11px; }
+  button {
+    font: inherit; font-size: 13px; cursor: pointer; padding: 8px 16px; border-radius: 8px;
+    color: var(--bg, #0b0b0b); background: var(--accent, #22c55e); border: 0;
+  }
+  button.ghost { background: transparent; color: var(--fg, #f5f5f5); border: 1px solid var(--border, #2a2a2a); margin-left: 8px; }
+</style>
+<main>
+  <h1 id="headline">Não foi possível abrir esta página</h1>
+  <p id="reason"></p>
+  <code class="url" id="url"></code>
+  <button id="retry" type="button">Tentar novamente</button>
+  <button id="back" type="button" class="ghost">Voltar</button>
+  <p class="code" id="code"></p>
+</main>
+<script>
+  const params = new URLSearchParams(location.search);
+  const root = document.documentElement.style;
+  for (const [key, prop] of [['bg', '--bg'], ['fg', '--fg'], ['accent', '--accent'], ['panel', '--panel'], ['border', '--border']]) {
+    const value = params.get(key);
+    if (value) root.setProperty(prop, value);
+  }
+  const failedUrl = params.get('url') || '';
+  const description = params.get('description') || '';
+  const code = params.get('code') || '';
+  const REASONS = {
+    'ERR_NAME_NOT_RESOLVED': 'O endereço não foi encontrado. Verifique se o site está escrito corretamente.',
+    'ERR_INTERNET_DISCONNECTED': 'Sem conexão com a internet.',
+    'ERR_CONNECTION_REFUSED': 'O servidor recusou a conexão.',
+    'ERR_CONNECTION_TIMED_OUT': 'O servidor demorou demais para responder.',
+    'ERR_CONNECTION_RESET': 'A conexão foi interrompida.',
+    'ERR_SSL_PROTOCOL_ERROR': 'Falha na conexão segura com o site.',
+    'ERR_CERT_AUTHORITY_INVALID': 'O certificado do site não é confiável.',
+    'ERR_ADDRESS_UNREACHABLE': 'Não foi possível alcançar o servidor.'
+  };
+  document.getElementById('reason').textContent = REASONS[description] || 'A página não respondeu como esperado.';
+  document.getElementById('url').textContent = failedUrl;
+  document.getElementById('code').textContent = description ? description + (code ? ' (' + code + ')' : '') : '';
+  document.getElementById('retry').addEventListener('click', () => { if (failedUrl) location.replace(failedUrl); });
+  document.getElementById('back').addEventListener('click', () => history.back());
+</script>

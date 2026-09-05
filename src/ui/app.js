@@ -753,6 +753,9 @@ if (homeButton) homeButton.addEventListener('click', () => command('home'));
 omniboxRow.addEventListener('submit', (event) => {
   event.preventDefault();
   command('navigate', omnibox.value);
+  // Keeping focus left the typed text stale and blocked the auto-hide, so the
+  // bar stayed open showing what was typed instead of the loaded URL.
+  omnibox.blur();
 });
 
 omnibox.addEventListener('focus', () => window.zeos.setChromeExpanded(true));

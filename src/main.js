@@ -1087,6 +1087,18 @@ function broadcastDownloads() {
   }
 }
 
+// Downloading the same file twice silently overwrote the first one; follow the
+// browser convention of "name (1).ext" instead.
+function uniqueDownloadPath(dir, filename) {
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
+  let candidate = path.join(dir, filename);
+  for (let n = 1; n < 1000 && fs.existsSync(candidate); n += 1) {
+    candidate = path.join(dir, `${base} (${n})${ext}`);
+  }
+  return candidate;
+}
+
 function setupSession(browserSession) {
   if (configuredSessions.has(browserSession)) return;
   configuredSessions.add(browserSession);
@@ -1111,7 +1123,7 @@ function setupSession(browserSession) {
 
   browserSession.on('will-download', (_event, item, source) => {
     const downloadId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const savePath = path.join(app.getPath('downloads'), item.getFilename());
+    const savePath = uniqueDownloadPath(app.getPath('downloads'), item.getFilename());
     item.setSavePath(savePath);
 
     const downloadRecord = {
@@ -1520,10 +1532,24 @@ class Browser {
       }
     });
     contents.on('did-fail-load', (_event, code, description, url, mainFrame) => {
+      // -3 is ERR_ABORTED, which a normal navigation away also produces.
       if (mainFrame && code !== -3) {
         tab.url = url || tab.url;
-        tab.title = `erro: ${description}`;
+        tab.title = 'falha ao carregar';
         tab.loading = false;
+        // A failed load used to leave a blank view with no explanation.
+        const appearance = settings.appearance || {};
+        const query = new URLSearchParams({
+          url: url || '',
+          description: description || '',
+          code: String(code),
+          bg: appearance.background || '',
+          fg: appearance.foreground || '',
+          accent: appearance.accent || '',
+          panel: appearance.panel || '',
+          border: appearance.border || ''
+        }).toString();
+        contents.loadFile(path.join(__dirname, 'error', 'index.html'), { search: query }).catch(() => {});
         getOwner().sendState();
       }
     });
