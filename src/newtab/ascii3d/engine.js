@@ -255,6 +255,13 @@ export class AsciiLab {
     return Promise.reject(new Error('Formato não suportado'));
   }
 
+  // Loads a model that ships with the app, as opposed to one the user drops in.
+  loadModelUrl(url) {
+    return new Promise((resolve, reject) => {
+      new GLTFLoader().load(url, (gltf) => resolve(gltf.scene), undefined, reject);
+    });
+  }
+
   setAutoRotate(enabled) {
     this.autoRotate = enabled;
     if (this.controls) this.controls.autoRotate = enabled;
@@ -267,12 +274,17 @@ export class AsciiLab {
       return;
     }
     if (!this.model) return;
-    const box = new THREE.Box3().setFromObject(this.model);
-    const size = box.getSize(new THREE.Vector3());
     this.controls.reset();
     this.controls.target.copy(this.model.position);
-    this.camera.position.set(0, size.y * 0.5, size.z * 2);
-    this.camera.lookAt(this.model.position);
+    // Recentring has to reuse the framing the model was set up with, or a flat
+    // subject lands the camera inside itself all over again.
+    if (this.lastFit) {
+      this.frameToFit(this.model, this.lastFit);
+    } else {
+      const size = new THREE.Box3().setFromObject(this.model).getSize(new THREE.Vector3());
+      this.camera.position.set(0, size.y * 0.5, size.z * 2);
+    }
+    this.camera.lookAt(this.controls.target);
     this.controls.update();
   }
 

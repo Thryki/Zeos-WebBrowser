@@ -160,10 +160,16 @@ export function mount3D({ host, toggleButton, initial, enabled, onPersist }) {
     else lab.start();
   });
 
-  buildWordmarkWhenReady('ZEOS').then((mesh) => {
-    if (mesh) lab.setModel(mesh, { frame: 'fit', fit: { margin: 2.15, anchor: 0.22 } });
-    lab.apply(state);
-  });
+  // The wordmark modelled in Blender from the logo's own vector outlines. The
+  // bitmap-extruded one stays as a fallback so the tab is never empty if the
+  // asset goes missing.
+  const FIT = { margin: 2.1, anchor: 0.19 };
+  lab.loadModelUrl('../assets/zeos-wordmark.glb')
+    .catch(() => buildWordmarkWhenReady('ZEOS'))
+    .then((model) => {
+      if (model) lab.setModel(model, { frame: 'fit', fit: FIT });
+      lab.apply(state);
+    });
 
   resize();
   lab.apply(state);

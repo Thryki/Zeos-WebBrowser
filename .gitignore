@@ -31,3 +31,6 @@ Thumbs.db
 # Local agent/editor scratch
 .claude/
 *.zip
+
+# Blender autosave backups
+*.blend1

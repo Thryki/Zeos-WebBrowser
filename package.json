@@ -43,7 +43,8 @@
     "files": [
       "src/**/*",
       "package.json",
-      "!src/assets/zeos-logo.png"
+      "!src/assets/zeos-logo.png",
+      "!src/assets/*.blend*"
     ],
     "asar": true,
     "asarUnpack": [

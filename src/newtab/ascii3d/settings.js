@@ -47,7 +47,7 @@ export const TOOL_DEFAULTS = {
 // What a fresh Zeos new tab opens with: the same shape, dressed in the browser's
 // own palette so the wordmark sits on the page instead of glaring off it.
 export const ZEOS_DEFAULTS = deepMerge(TOOL_DEFAULTS, {
-  ascii: { characters: ' .:-=+*#%@', resolution: 7, color: '#22c55e' },
+  ascii: { characters: ' .:-=+*#%@', resolution: 5, color: '#22c55e' },
   target: { background: { solidColor: '#0b0b0b' } },
   colors: {
     background: '#0b0b0b',
