@@ -161,7 +161,7 @@ export function mount3D({ host, toggleButton, initial, enabled, onPersist }) {
   });
 
   buildWordmarkWhenReady('ZEOS').then((mesh) => {
-    if (mesh) lab.setModel(mesh, { frame: 'fit' });
+    if (mesh) lab.setModel(mesh, { frame: 'fit', fit: { margin: 2.15, anchor: 0.22 } });
     lab.apply(state);
   });
 

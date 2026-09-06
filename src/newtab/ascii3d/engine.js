@@ -119,7 +119,8 @@ export class AsciiLab {
 
     this.controls.reset();
     this.controls.target.copy(model.position);
-    if (options.frame === 'fit') this.frameToFit(model);
+    this.lastFit = options.frame === 'fit' ? (options.fit || {}) : null;
+    if (options.frame === 'fit') this.frameToFit(model, options.fit);
     else this.camera.position.set(0, size.y * scale * 0.5, size.z * scale * 2);
     this.camera.lookAt(this.controls.target);
     this.controls.update();
@@ -127,7 +128,10 @@ export class AsciiLab {
 
   // Distance that puts the whole bounding sphere inside the frustum, on both
   // axes, with a little air around it.
-  frameToFit(model, margin = 1.12) {
+  // margin backs the camera off past a tight fit; anchor says where in the
+  // frame the subject should sit vertically (0 = top edge, 0.5 = centre), which
+  // is how the wordmark ends up in the header band instead of over the cards.
+  frameToFit(model, { margin = 1.12, anchor = 0.5 } = {}) {
     const sphere = new THREE.Box3().setFromObject(model).getBoundingSphere(new THREE.Sphere());
     const vertical = (this.camera.fov * Math.PI) / 180;
     const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * this.camera.aspect);
@@ -135,8 +139,11 @@ export class AsciiLab {
       sphere.radius / Math.sin(vertical / 2),
       sphere.radius / Math.sin(horizontal / 2),
     ) * margin;
-    this.controls.target.copy(sphere.center);
-    this.camera.position.set(sphere.center.x, sphere.center.y, sphere.center.z + distance);
+    const frameHeight = 2 * distance * Math.tan(vertical / 2);
+    const lift = (0.5 - anchor) * frameHeight;
+
+    this.controls.target.set(sphere.center.x, sphere.center.y - lift, sphere.center.z);
+    this.camera.position.set(sphere.center.x, sphere.center.y - lift, sphere.center.z + distance);
   }
 
   // Video and image content bypasses setModel: it is a flat plane two units
@@ -270,6 +277,7 @@ export class AsciiLab {
   }
 
   setSize(width, height, aspectRatio) {
+    const reframe = this.lastFit && this.model && !this.isVideo && !this.isImage;
     this.width = Math.max(1, Math.round(width));
     this.height = Math.max(1, Math.round(height));
     this.aspectRatio = aspectRatio || this.width / this.height;
@@ -278,6 +286,7 @@ export class AsciiLab {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.width, this.height);
     this.composer.setSize(this.width, this.height);
+    if (reframe) this.frameToFit(this.model, this.lastFit);
     if (this.settings) this.apply(this.settings);
   }
 

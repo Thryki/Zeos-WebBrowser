@@ -27,8 +27,9 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   [hidden] { display: none !important; }
-  body {
-    background: var(--bg); color: var(--fg); min-height: 100vh;
+  body { background: var(--bg); color: var(--fg); min-height: 100vh; }
+  .page {
+    position: relative; z-index: 1; min-height: 100vh;
     display: flex; flex-direction: column; align-items: center;
     padding: 5vh 24px 70px;
   }
@@ -36,6 +37,9 @@
   /* Wordmark */
   .brand { width: 100%; max-width: 1180px; display: flex; flex-direction: column; align-items: center; }
   .brand-logo { width: min(280px, 44vw); height: auto; display: block; margin: 10px 0 22px; opacity: .92; }
+  /* With the 3D backdrop on, the brand slot is empty but still reserves the
+     band the rotating wordmark occupies, so the greeting starts below it. */
+  body.has-3d .brand { min-height: min(34vh, 330px); }
 
   /* Greeting */
   .greeting { text-align: center; margin: -18px 0 26px; }
@@ -80,6 +84,67 @@
   }
   .chip select option { background: var(--panel); }
   .chip.static { cursor: default; opacity: .75; }
+  .chip-keys {
+    font-size: 9.5px; letter-spacing: .04em; opacity: .4;
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px;
+  }
+  .chip-add { padding: 6px 8px; }
+  .pins { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pin {
+    position: relative; display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
+    padding: 6px 10px; font: inherit; font-size: 11.5px; color: inherit; cursor: pointer;
+  }
+  .pin:hover { background: var(--panel-hover); }
+  .pin .mark {
+    display: grid; place-items: center; width: 16px; height: 16px; flex: none;
+    border-radius: 4px; background: #101010; font-size: 9px; opacity: .8;
+  }
+  .pin-drop {
+    display: grid; place-items: center; width: 15px; height: 15px; margin-left: 1px;
+    border: 0; border-radius: 4px; background: transparent; color: inherit;
+    cursor: pointer; opacity: 0; transition: opacity .12s, color .12s;
+  }
+  .pin:hover .pin-drop { opacity: .5; }
+  .pin-drop:hover { opacity: 1; color: #f87171; }
+
+  .pin-modal {
+    position: fixed; inset: 0; z-index: 6; display: grid; place-items: center;
+    background: rgba(0,0,0,.6);
+  }
+  .pin-card {
+    width: min(420px, 92vw); max-height: 76vh; display: flex; flex-direction: column;
+    background: #101010; border: 1px solid var(--border); border-radius: 12px;
+  }
+  .pin-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .pin-head h2 { font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+  .pin-close {
+    display: grid; place-items: center; width: 24px; height: 24px;
+    border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; opacity: .6;
+  }
+  .pin-close:hover { opacity: 1; background: var(--panel-hover); }
+  .pin-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .pin-option {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    border: 0; border-radius: 8px; background: transparent; color: inherit;
+    font: inherit; font-size: 12.5px; text-align: left; padding: 9px 10px; cursor: pointer;
+  }
+  .pin-option:hover { background: var(--panel); }
+  .pin-option[aria-pressed="true"] { color: var(--accent); }
+  .pin-option .mark {
+    display: grid; place-items: center; width: 22px; height: 22px; flex: none;
+    border-radius: 6px; background: var(--panel); font-size: 10px;
+  }
+  .pin-option .host { margin-left: auto; font-size: 10.5px; opacity: .35; }
+  .pin-custom { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .pin-custom input {
+    flex: 1; min-width: 0; font: inherit; font-size: 12px; color: var(--fg);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; outline: 0;
+  }
+  .pin-custom input:focus { border-color: var(--accent); }
   .go {
     margin-left: auto; width: 34px; height: 30px; display: grid; place-items: center;
     border-radius: 7px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
@@ -164,12 +229,9 @@
   .fx-canvas canvas { display: block; }
   /* Keeps the page legible over whatever the effect is doing behind it. */
   .fx-scrim {
-    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    position: fixed; inset: 0; pointer-events: none;
     background: linear-gradient(180deg, rgba(11,11,11,.74) 0%, rgba(11,11,11,.46) 45%, rgba(11,11,11,.8) 100%);
   }
-  /* Page content rides above the backdrop; the panel and its gear are fixed
-     chrome and must keep their own positioning. */
-  body > *:not(.fx-host):not(.fx-scrim):not(.fx-panel):not(.fx-toggle) { position: relative; z-index: 2; }
 
   .fx-toggle {
     position: fixed; right: 18px; bottom: 18px; z-index: 4;
@@ -267,6 +329,7 @@
   <div class="fx-host" id="fx-host" aria-hidden="true"></div>
   <div class="fx-scrim" id="fx-scrim"></div>
 
+  <main class="page">
   <div class="brand">
     <img id="brand-logo" class="brand-logo" src="../assets/zeos-newtab.svg" alt="Zeos" />
   </div>
@@ -296,18 +359,17 @@
           <option value="ecosia">Ecosia</option>
         </select>
       </label>
-      <span class="chip static"><span class="icon" data-icon="folder"></span><span id="fav-count">0 favoritos</span></span>
+      <button class="chip" type="button" id="fav-chip" title="Abrir favoritos">
+        <span class="icon" data-icon="folder"></span><span id="fav-count">0 favoritos</span>
+        <span class="chip-keys">Ctrl+B</span>
+      </button>
+      <span class="pins" id="pins"></span>
+      <button class="chip chip-add" type="button" id="pin-add" title="Fixar um site" aria-label="Fixar um site">
+        <span class="icon" data-icon="plus"></span>
+      </button>
       <button class="go" type="submit" title="Ir" aria-label="Ir"><span data-icon="arrow-right"></span></button>
     </div>
   </form>
-
-  <section id="fav-section" hidden>
-    <div class="section-head">
-      <h2>Favoritos</h2>
-      <button class="section-link" type="button" id="fav-all">ver todos</button>
-    </div>
-    <div class="cards" id="favs"></div>
-  </section>
 
   <section>
     <div class="section-head"><h2>Comece algo</h2></div>
@@ -316,11 +378,6 @@
         <span class="icon" data-icon="terminal"></span>
         <span class="action-label">novo terminal</span>
         <span class="keys">Ctrl+Shift+K</span>
-      </button>
-      <button class="action" type="button" id="act-favorites">
-        <span class="icon" data-icon="star"></span>
-        <span class="action-label">favoritos</span>
-        <span class="keys">Ctrl+B</span>
       </button>
       <button class="action" type="button" id="act-settings">
         <span class="icon" data-icon="settings"></span>
@@ -338,12 +395,27 @@
     <div class="rows" id="hist"></div>
   </section>
 
+  </main>
+
+  <div class="pin-modal" id="pin-modal" hidden>
+    <div class="pin-card" role="dialog" aria-modal="true" aria-labelledby="pin-title">
+      <div class="pin-head">
+        <h2 id="pin-title">Fixar um site</h2>
+        <button class="pin-close" type="button" id="pin-close" aria-label="Fechar"><span data-icon="x"></span></button>
+      </div>
+      <div class="pin-list" id="pin-list"></div>
+      <form class="pin-custom" id="pin-custom">
+        <input id="pin-url" type="text" placeholder="ou cole um endereço" autocomplete="off" spellcheck="false" />
+        <button class="chip" type="submit">Fixar</button>
+      </form>
+    </div>
+  </div>
+
 <script src="../icons.js"></script>
 <script>
-  const favsEl = document.getElementById('favs');
   const histEl = document.getElementById('hist');
-  const favSection = document.getElementById('fav-section');
   const histSection = document.getElementById('hist-section');
+  const pinsEl = document.getElementById('pins');
   const providerEl = document.getElementById('provider');
   const favCountEl = document.getElementById('fav-count');
 
@@ -378,42 +450,132 @@
   }
 
   function renderFavorites(items) {
-    favsEl.replaceChildren();
-    favSection.hidden = !items.length;
     favCountEl.textContent = items.length === 1 ? '1 favorito' : `${items.length} favoritos`;
-    for (const item of items.slice(0, 8)) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'card';
-      card.title = item.url;
+  }
+
+  // Sites offered by the pin picker. Kept short and well known: the point is
+  // one click to the handful of places a new tab usually goes.
+  const SUGGESTED = [
+    { title: 'ChatGPT', url: 'https://chatgpt.com' },
+    { title: 'Claude', url: 'https://claude.ai' },
+    { title: 'Gemini', url: 'https://gemini.google.com' },
+    { title: 'Perplexity', url: 'https://perplexity.ai' },
+    { title: 'GitHub', url: 'https://github.com' },
+    { title: 'YouTube', url: 'https://youtube.com' },
+    { title: 'Gmail', url: 'https://mail.google.com' },
+    { title: 'Wikipédia', url: 'https://pt.wikipedia.org' },
+    { title: 'Reddit', url: 'https://reddit.com' },
+    { title: 'Notion', url: 'https://notion.so' },
+    { title: 'Figma', url: 'https://figma.com' },
+    { title: 'Dislexfy', url: 'https://dislexfy.com' },
+  ];
+
+  let pins = [];
+
+  function savePins() {
+    window.zeosSettings?.update({ newTabPins: pins });
+  }
+
+  function renderPins() {
+    pinsEl.replaceChildren();
+    for (const pin of pins) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'pin';
+      chip.title = pin.url;
 
       const mark = document.createElement('span');
       mark.className = 'mark';
-      if (item.favicon) {
-        const img = document.createElement('img');
-        img.src = item.favicon;
-        img.alt = '';
-        img.addEventListener('error', () => { mark.textContent = (hostOf(item.url)[0] || '?').toUpperCase(); });
-        mark.appendChild(img);
-      } else {
-        mark.textContent = (hostOf(item.url)[0] || '?').toUpperCase();
-      }
+      mark.textContent = (pin.title[0] || hostOf(pin.url)[0] || '?').toUpperCase();
 
-      const text = document.createElement('span');
-      text.className = 'card-text';
-      const title = document.createElement('span');
-      title.className = 'card-title';
-      title.textContent = item.title || hostOf(item.url);
-      const sub = document.createElement('span');
-      sub.className = 'card-sub';
-      sub.textContent = hostOf(item.url);
-      text.append(title, sub);
+      const label = document.createElement('span');
+      label.textContent = pin.title;
 
-      card.append(mark, text);
-      card.addEventListener('click', () => open(item.url, false));
-      favsEl.appendChild(card);
+      const drop = document.createElement('span');
+      drop.className = 'pin-drop';
+      drop.setAttribute('role', 'button');
+      drop.tabIndex = 0;
+      drop.title = 'Desafixar';
+      drop.innerHTML = iconMarkup('x', 11);
+      const unpin = (event) => {
+        event.stopPropagation();
+        pins = pins.filter((entry) => entry.url !== pin.url);
+        renderPins();
+        savePins();
+      };
+      drop.addEventListener('click', unpin);
+      drop.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') unpin(event);
+      });
+
+      chip.append(mark, label, drop);
+      chip.addEventListener('click', () => open(pin.url, false));
+      pinsEl.appendChild(chip);
     }
   }
+
+  const pinModal = document.getElementById('pin-modal');
+  const pinList = document.getElementById('pin-list');
+
+  function togglePin(entry) {
+    if (pins.some((pin) => pin.url === entry.url)) pins = pins.filter((pin) => pin.url !== entry.url);
+    else pins = [...pins, entry];
+    renderPins();
+    savePins();
+    renderPinList();
+  }
+
+  function renderPinList() {
+    pinList.replaceChildren();
+    for (const entry of SUGGESTED) {
+      const pinned = pins.some((pin) => pin.url === entry.url);
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'pin-option';
+      option.setAttribute('aria-pressed', String(pinned));
+
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      mark.textContent = entry.title[0].toUpperCase();
+
+      const label = document.createElement('span');
+      label.textContent = entry.title;
+
+      const host = document.createElement('span');
+      host.className = 'host';
+      host.textContent = pinned ? 'fixado' : hostOf(entry.url);
+
+      option.append(mark, label, host);
+      option.addEventListener('click', () => togglePin(entry));
+      pinList.appendChild(option);
+    }
+  }
+
+  function openPinModal(open) {
+    pinModal.hidden = !open;
+    if (open) {
+      renderPinList();
+      document.getElementById('pin-url').value = '';
+    }
+  }
+
+  document.getElementById('pin-add').addEventListener('click', () => openPinModal(true));
+  document.getElementById('pin-close').addEventListener('click', () => openPinModal(false));
+  pinModal.addEventListener('click', (event) => {
+    if (event.target === pinModal) openPinModal(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !pinModal.hidden) openPinModal(false);
+  });
+  document.getElementById('pin-custom').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const raw = document.getElementById('pin-url').value.trim();
+    if (!raw) return;
+    const lower = raw.toLowerCase();
+    const url = lower.startsWith('http://') || lower.startsWith('https://') ? raw : `https://${raw}`;
+    togglePin({ title: hostOf(url), url });
+    openPinModal(false);
+  });
 
   function renderHistory(history) {
     const seen = new Set();
@@ -474,13 +636,10 @@
   document.getElementById('act-terminal').addEventListener('click', () => {
     window.zeosFavorites?.navigateSelf('zeos://terminal');
   });
-  document.getElementById('act-favorites').addEventListener('click', () => {
-    window.zeosFavorites?.navigateSelf('zeos://favoritos');
-  });
   document.getElementById('act-settings').addEventListener('click', () => {
     window.zeosFavorites?.navigateSelf('zeos://settings');
   });
-  document.getElementById('fav-all').addEventListener('click', () => {
+  document.getElementById('fav-chip').addEventListener('click', () => {
     window.zeosFavorites?.navigateSelf('zeos://favoritos');
   });
   document.getElementById('hist-all').addEventListener('click', () => {
@@ -495,6 +654,8 @@
       applyTheme(settings.appearance);
       if (settings.searchProvider) providerEl.value = settings.searchProvider;
       renderHistory(Array.isArray(settings.history) ? settings.history : []);
+      pins = Array.isArray(settings.newTabPins) ? settings.newTabPins : [];
+      renderPins();
     };
     window.zeosSettings.get().then(load);
     window.zeosSettings.onChanged(load);
@@ -529,6 +690,7 @@
   const enabled = settings?.newTab3D !== false;
   toggle.hidden = !enabled;
   scrim.hidden = !enabled;
+  document.body.classList.toggle('has-3d', enabled);
   // With the effect on, the wordmark is the thing rotating behind the page.
   brandLogo.hidden = enabled;
 

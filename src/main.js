@@ -10,6 +10,13 @@ const { THEMES, getTheme } = require('./themes');
 
 const WORKSPACES_FILE = 'workspaces.json';
 
+// Pinned new-tab shortcuts are clickable targets, so only real web addresses
+// are ever stored.
+function isHttpUrl(value) {
+  const lower = String(value).toLowerCase();
+  return lower.startsWith('http://') || lower.startsWith('https://');
+}
+
 // Addresses that open the settings page straight on its history panel.
 const HISTORY_TARGETS = new Set(['zeos://historico', 'zeos://history', 'chrome://history', 'about:history']);
 
@@ -26,6 +33,7 @@ const DEFAULT_SETTINGS = {
   disabledExtensions: [],
   newTab3D: true,
   newTabEffect: null,
+  newTabPins: [],
   appearance: {
     themeId: 'orca',
     background: '#0b0b0b',
@@ -219,6 +227,13 @@ function updateSettings(patch) {
   if (!patch || typeof patch !== 'object') return { ...copy(settings), themes: THEMES };
   if (SEARCH_PROVIDERS[patch.searchProvider]) settings.searchProvider = patch.searchProvider;
   if (typeof patch.newTab3D === 'boolean') settings.newTab3D = patch.newTab3D;
+  if (Array.isArray(patch.newTabPins)) {
+    settings.newTabPins = patch.newTabPins
+      .filter((pin) => pin && typeof pin.url === 'string' && typeof pin.title === 'string')
+      .filter((pin) => isHttpUrl(pin.url) && pin.url.length <= 2048)
+      .slice(0, 12)
+      .map((pin) => ({ title: pin.title.slice(0, 60), url: pin.url }));
+  }
   // The new tab's 3D panel round-trips its own effect state. It is renderer
   // data with no meaning here, so it is size-capped and re-parsed rather than
   // trusted as an object.
