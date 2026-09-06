@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Configurações — Dislexfy</title>
+<link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main class="zx-opt-page">
+    <header class="zx-opt-header">
+      <h1>Configurações do Dislexfy</h1>
+      <p class="zx-opt-subtitle">Tudo o que dá pra ajustar, num lugar só. Salvo automaticamente e sincronizado com sua conta do Chrome.</p>
+    </header>
+
+    <!-- ================= CONTA ================= -->
+    <section class="zx-opt-card" aria-labelledby="zx-h-account">
+      <h2 id="zx-h-account">Conta</h2>
+
+      <div class="zx-opt-account" id="zx-account-out">
+        <p class="zx-opt-hint">Entre para sincronizar suas preferências e liberar os recursos Pro (salvar trechos e Modo Leitura).</p>
+        <div class="zx-opt-row">
+          <input type="email" id="zx-acc-email" autocomplete="username" placeholder="voce@email.com" aria-label="E-mail" />
+          <input type="password" id="zx-acc-pass" autocomplete="current-password" placeholder="Senha" aria-label="Senha" />
+          <button type="button" id="zx-acc-signin" class="zx-opt-btn zx-opt-btn-primary">Entrar</button>
+        </div>
+        <p class="zx-opt-test-result" id="zx-acc-msg" role="status" aria-live="polite"></p>
+        <p class="zx-opt-hint">
+          Não tem conta?
+          <a class="zx-opt-link" href="https://dislexfy.com/conta.html" target="_blank" rel="noopener noreferrer">Criar conta no site</a>
+        </p>
+      </div>
+
+      <div class="zx-opt-account" id="zx-account-in" hidden>
+        <div class="zx-opt-account-row">
+          <span class="zx-opt-account-id">
+            <strong id="zx-acc-name">—</strong>
+            <span id="zx-acc-mail" class="zx-opt-toggle-desc"></span>
+          </span>
+          <span class="zx-opt-plan" id="zx-acc-plan">Grátis</span>
+        </div>
+        <div class="zx-opt-row zx-opt-row-end">
+          <button type="button" id="zx-acc-refresh" class="zx-opt-btn zx-opt-btn-secondary">Atualizar plano</button>
+          <button type="button" id="zx-acc-signout" class="zx-opt-btn zx-opt-btn-secondary">Sair</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= INICIALIZAÇÃO ================= -->
+    <section class="zx-opt-card" aria-labelledby="zx-h-start">
+      <h2 id="zx-h-start">Como o Dislexfy começa em cada página</h2>
+
+      <div class="zx-opt-field">
+        <label for="zx-start-mode">Estado inicial</label>
+        <p class="zx-opt-hint">Vale para toda página nova que você abrir.</p>
+        <select id="zx-start-mode">
+          <option value="hidden">Oculto — só aparece ao clicar no ícone da extensão</option>
+          <option value="collapsed">Recolhido — mostra só a logo, pronta para um clique</option>
+          <option value="open">Aberto — a interface completa, com todos os botões</option>
+        </select>
+      </div>
+
+      <div class="zx-opt-field">
+        <label for="zx-orientation">Orientação da barra</label>
+        <select id="zx-orientation">
+          <option value="vertical">Vertical (mais discreta)</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+      </div>
+
+      <label class="zx-opt-toggle-row" for="zx-idlefade-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Esmaecer quando parado</span>
+          <span class="zx-opt-toggle-desc">Sem interação e sem leitura, o widget fica translúcido. Volta ao normal assim que o cursor chega perto ou a leitura começa.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-idlefade-toggle" checked />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+
+      <label class="zx-opt-toggle-row" for="zx-autoplay-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Leitura contínua</span>
+          <span class="zx-opt-toggle-desc">Ao terminar um parágrafo, o Dislexfy começa o próximo sozinho, até o fim do conteúdo. Cada parágrafo só é gerado quando chega a vez dele.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-autoplay-toggle" />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+    </section>
+
+    <!-- ================= VOZ ================= -->
+    <section class="zx-opt-card" aria-labelledby="zx-h-voice">
+      <h2 id="zx-h-voice">Voz e velocidade</h2>
+
+      <div class="zx-opt-field">
+        <label for="zx-voice">Voz padrão</label>
+        <p class="zx-opt-hint">Durante a leitura, o botão de voz no widget alterna rapidamente entre elas.</p>
+        <div class="zx-opt-row">
+          <select id="zx-voice">
+            <option value="pt-BR-AntonioNeural">Antônio (masculina)</option>
+            <option value="pt-BR-FranciscaNeural">Francisca (feminina)</option>
+            <option value="pt-BR-ThalitaNeural">Thalita (feminina)</option>
+          </select>
+          <button type="button" id="zx-preview-btn" class="zx-opt-btn zx-opt-btn-secondary">Ouvir prévia</button>
+        </div>
+        <p class="zx-opt-test-result" id="zx-preview-result" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="zx-opt-field">
+        <div class="zx-opt-speed-row">
+          <label for="zx-speed">Velocidade padrão</label>
+          <span id="zx-speed-value" aria-hidden="true">1.00x</span>
+        </div>
+        <input
+          type="range"
+          id="zx-speed"
+          min="0.7"
+          max="1.6"
+          step="0.05"
+          value="1"
+          aria-valuetext="1.00x"
+        />
+      </div>
+    </section>
+
+    <!-- ================= DESTAQUE ================= -->
+    <section class="zx-opt-card" aria-labelledby="zx-h-highlight">
+      <h2 id="zx-h-highlight">Destaque durante a leitura</h2>
+
+      <label class="zx-opt-toggle-row" for="zx-highlight-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Destacar palavras</span>
+          <span class="zx-opt-toggle-desc">Acende a frase e a palavra faladas durante a leitura.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-highlight-toggle" checked />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+
+      <div class="zx-opt-field" id="zx-hl-group">
+        <label for="zx-hl-color">Cor do destaque</label>
+        <div class="zx-opt-swatches" role="radiogroup" aria-label="Cor do destaque" id="zx-hl-color">
+          <button type="button" class="zx-opt-swatch" data-color="yellow" role="radio" aria-checked="true" aria-label="Amarelo"></button>
+          <button type="button" class="zx-opt-swatch" data-color="blue" role="radio" aria-checked="false" aria-label="Azul"></button>
+          <button type="button" class="zx-opt-swatch" data-color="pink" role="radio" aria-checked="false" aria-label="Rosa"></button>
+        </div>
+
+        <label for="zx-hl-style">Estilo do destaque</label>
+        <select id="zx-hl-style">
+          <option value="background">Fundo colorido</option>
+          <option value="underline">Sublinhado</option>
+        </select>
+
+        <label class="zx-opt-toggle-row" for="zx-hltrail-toggle">
+          <span class="zx-opt-toggle-text">
+            <span class="zx-opt-toggle-title">Rastro do que já foi lido</span>
+            <span class="zx-opt-toggle-desc">Mantém marcado o trecho que a voz já passou.</span>
+          </span>
+          <span class="zx-opt-switch">
+            <input type="checkbox" id="zx-hltrail-toggle" />
+            <span class="zx-opt-switch-track"></span>
+            <span class="zx-opt-switch-thumb"></span>
+          </span>
+        </label>
+      </div>
+
+      <label class="zx-opt-toggle-row" for="zx-focus-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Foco no parágrafo</span>
+          <span class="zx-opt-toggle-desc">Escurece o resto da página e ilumina só o trecho em leitura.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-focus-toggle" />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+
+      <label class="zx-opt-toggle-row" for="zx-autoscroll-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Rolagem automática</span>
+          <span class="zx-opt-toggle-desc">A página acompanha o trecho que está sendo lido.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-autoscroll-toggle" checked />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+    </section>
+
+    <!-- ================= TEXTO ================= -->
+    <section class="zx-opt-card" aria-labelledby="zx-h-text">
+      <h2 id="zx-h-text">Texto e aparência</h2>
+
+      <div class="zx-opt-field">
+        <label for="zx-readfont">Fonte do trecho lido</label>
+        <p class="zx-opt-hint">Trocada só no parágrafo em leitura — o resto da página fica intacto.</p>
+        <select id="zx-readfont">
+          <option value="page">Manter a fonte da página</option>
+          <option value="atkinson">Atkinson Hyperlegible</option>
+          <option value="opendyslexic">OpenDyslexic</option>
+          <option value="lexend">Lexend</option>
+        </select>
+      </div>
+
+      <label class="zx-opt-toggle-row" for="zx-spacing-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Espaçamento confortável</span>
+          <span class="zx-opt-toggle-desc">Abre o espaço entre letras e palavras no trecho lido.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-spacing-toggle" />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+
+      <label class="zx-opt-toggle-row" for="zx-dark-toggle">
+        <span class="zx-opt-toggle-text">
+          <span class="zx-opt-toggle-title">Modo escuro</span>
+          <span class="zx-opt-toggle-desc">Aplica um tema escuro aos painéis do Dislexfy.</span>
+        </span>
+        <span class="zx-opt-switch">
+          <input type="checkbox" id="zx-dark-toggle" checked />
+          <span class="zx-opt-switch-track"></span>
+          <span class="zx-opt-switch-thumb"></span>
+        </span>
+      </label>
+    </section>
+
+    <!-- ================= AVANÇADO ================= -->
+    <section class="zx-opt-card" aria-labelledby="zx-h-api">
+      <h2 id="zx-h-api">Avançado</h2>
+      <div class="zx-opt-field">
+        <label for="zx-api-url">Endereço da API de voz</label>
+        <p class="zx-opt-hint" id="zx-api-hint">Só mexa aqui se você hospeda seu próprio servidor. Precisa começar com <code>https://</code>.</p>
+        <div class="zx-opt-row">
+          <input
+            type="url"
+            id="zx-api-url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="https://dislexfy.com/api/tts"
+            aria-describedby="zx-api-hint zx-api-error"
+          />
+          <button type="button" id="zx-test-btn" class="zx-opt-btn zx-opt-btn-secondary">
+            Testar conexão
+          </button>
+        </div>
+        <p class="zx-opt-error" id="zx-api-error" role="alert" hidden></p>
+        <p class="zx-opt-test-result" id="zx-test-result" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <p class="zx-opt-status" id="zx-save-status" role="status" aria-live="polite"></p>
+
+    <footer class="zx-opt-footer">
+      <a class="zx-opt-link" href="https://dislexfy.com" target="_blank" rel="noopener noreferrer">Site oficial</a>
+      <button type="button" class="zx-opt-link zx-opt-linkbtn" id="zx-shortcuts-btn">Atalhos do teclado</button>
+      <a class="zx-opt-link zx-opt-link-support" href="https://dislexfy.com/#apoiar" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">❤</span> Apoie o projeto</a>
+    </footer>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>

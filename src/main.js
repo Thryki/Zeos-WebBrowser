@@ -652,6 +652,35 @@ async function loadPreparedExtension(sourcePath) {
 }
 
 // Chrome Extension management
+// Extensions shipped with the browser. They install themselves on first run,
+// survive updates and cannot be removed — only disabled.
+const BUILTIN_EXTENSIONS_DIR = path.join(__dirname, 'bundled-extensions');
+
+function builtinExtensionPaths() {
+  try {
+    return fs.readdirSync(BUILTIN_EXTENSIONS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(BUILTIN_EXTENSIONS_DIR, entry.name))
+      .filter((dir) => fs.existsSync(path.join(dir, 'manifest.json')));
+  } catch {
+    return [];
+  }
+}
+
+function isBuiltinExtensionPath(extPath) {
+  if (typeof extPath !== 'string' || !extPath) return false;
+  const rel = path.relative(BUILTIN_EXTENSIONS_DIR, extPath);
+  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function readManifestName(extPath) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(extPath, 'manifest.json'), 'utf8')).name || '';
+  } catch {
+    return '';
+  }
+}
+
 async function loadSavedExtensions() {
   if (!Array.isArray(settings.extensions)) {
     settings.extensions = [];
@@ -659,16 +688,30 @@ async function loadSavedExtensions() {
   if (!Array.isArray(settings.disabledExtensions)) {
     settings.disabledExtensions = [];
   }
+
+  const builtinNames = new Set();
+  for (const extPath of builtinExtensionPaths()) {
+    builtinNames.add(readManifestName(extPath));
+    if (settings.disabledExtensions.includes(extPath)) continue;
+    try {
+      await loadPreparedExtension(extPath);
+    } catch (err) {
+      console.error('Failed to load built-in extension:', extPath, err);
+    }
+  }
+
   const loaded = [];
   for (const extPath of settings.extensions) {
-    if (fs.existsSync(extPath)) {
-      loaded.push(extPath);
-      if (!settings.disabledExtensions.includes(extPath)) {
-        try {
-          await loadPreparedExtension(extPath);
-        } catch (err) {
-          console.error('Failed to load extension:', extPath, err);
-        }
+    if (!fs.existsSync(extPath)) continue;
+    // A copy the user had loaded by hand before it shipped built-in would
+    // otherwise install twice.
+    if (builtinNames.has(readManifestName(extPath))) continue;
+    loaded.push(extPath);
+    if (!settings.disabledExtensions.includes(extPath)) {
+      try {
+        await loadPreparedExtension(extPath);
+      } catch (err) {
+        console.error('Failed to load extension:', extPath, err);
       }
     }
   }
@@ -801,9 +844,11 @@ function getInstalledExtensions() {
     result.push(getExtensionDetails(ext, true));
   }
 
-  // Include any disabled extensions stored in settings.extensions
-  if (Array.isArray(settings.extensions)) {
-    for (const extPath of settings.extensions) {
+  // Disabled extensions are not loaded, so they must be listed from their
+  // source folder — both the user's own and the ones shipped with Zeos.
+  const listedPaths = [...(Array.isArray(settings.extensions) ? settings.extensions : []), ...builtinExtensionPaths()];
+  {
+    for (const extPath of listedPaths) {
       if (!loadedMap.has(extPath) && fs.existsSync(extPath)) {
         try {
           const manifest = JSON.parse(fs.readFileSync(path.join(extPath, 'manifest.json'), 'utf8'));
@@ -820,6 +865,7 @@ function getInstalledExtensions() {
     }
   }
 
+  for (const entry of result) entry.builtin = isBuiltinExtensionPath(entry.path);
   installedExtensionsCache = result;
   return result;
 }
@@ -828,6 +874,8 @@ function removeExtension(extensionId) {
   try {
     const exts = getInstalledExtensions();
     const ext = exts.find(e => e.id === extensionId);
+    // Extensions shipped with the browser can only be disabled.
+    if (ext && isBuiltinExtensionPath(ext.path)) return false;
     if (ext) {
       try { session.defaultSession.removeExtension(extensionId); } catch {}
       if (ext.path) {
@@ -2085,16 +2133,16 @@ class Browser {
       template.push({ type: 'separator' });
     }
 
-    template.push(
-      {
-        label: 'Gerenciar extensões',
-        click: () => this.createSpecialTab('extensions')
-      },
-      {
+    template.push({
+      label: 'Gerenciar extensões',
+      click: () => this.createSpecialTab('extensions')
+    });
+    if (!isBuiltinExtensionPath(details.path)) {
+      template.push({
         label: 'Remover extensão...',
         click: () => removeExtension(ext.id)
-      }
-    );
+      });
+    }
 
     Menu.buildFromTemplate(template).popup(options);
   }

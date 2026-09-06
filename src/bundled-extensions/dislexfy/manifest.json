@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "Dislexfy",
+  "version": "1.1.0",
+  "minimum_chrome_version": "116",
+  "description": "Leitor de texto por voz natural — selecione, ouça, e acompanhe palavra por palavra. Pensado para acessibilidade e dislexia.",
+  "action": {
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    },
+    "default_title": "Abrir Dislexfy"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["highlight.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "offscreen"
+  ],
+  "commands": {
+    "toggle-widget": {
+      "suggested_key": { "default": "Alt+Shift+Z" },
+      "description": "Abrir/fechar o Dislexfy"
+    },
+    "read-selection": {
+      "suggested_key": { "default": "Alt+Shift+L" },
+      "description": "Ler a seleção"
+    },
+    "play-pause": {
+      "suggested_key": { "default": "Alt+Shift+K" },
+      "description": "Tocar/pausar"
+    },
+    "rewind-10": {
+      "suggested_key": { "default": "Alt+Shift+J" },
+      "description": "Voltar 10s"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/*.js",
+        "ui/widget.js",
+        "ui/widget.css",
+        "img/*.png",
+        "img/*.svg",
+        "offscreen-player.js",
+        "reader/*.html",
+        "reader/*.css",
+        "reader/*.js",
+        "auth/*.html",
+        "auth/*.css",
+        "auth/*.js",
+        "fonts/*.woff2"
+      ],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    }
+  ],
+  "host_permissions": [
+    "https://dislexfy.com/*",
+    "https://zyrex-tts.vercel.app/*",
+    "https://sioephltznhovvnlgmnh.supabase.co/*"
+  ]
+}

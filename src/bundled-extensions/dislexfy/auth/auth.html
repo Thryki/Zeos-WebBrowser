@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Entrar no Dislexfy</title>
+<link rel="stylesheet" href="auth.css" />
+</head>
+<body>
+  <!--
+    Página de login da extensão. Carregada num <iframe> dentro do widget, mas
+    servida de chrome-extension:// — ou seja, ORIGEM PRÓPRIA. O site visitado
+    não alcança nada daqui: nem lê os campos, nem injeta script, nem observa o
+    que é digitado. É por isso que o formulário de senha mora aqui e não em
+    React no shadow root da página.
+
+    Esta página também não fala com o Supabase: ela só manda mensagens
+    zyrex:auth:* pro service worker, que é o dono dos tokens.
+  -->
+  <main class="auth" id="authRoot">
+    <header class="auth__head">
+      <h1 class="auth__title" id="title">Entrar no Dislexfy</h1>
+      <p class="auth__sub" id="subtitle">Sincronize suas preferências e libere os recursos Pro.</p>
+    </header>
+
+    <div class="auth__tabs" role="tablist" aria-label="Modo de acesso">
+      <button type="button" class="auth__tab is-on" id="tabSignin" role="tab" aria-selected="true">Entrar</button>
+      <button type="button" class="auth__tab" id="tabSignup" role="tab" aria-selected="false">Criar conta</button>
+    </div>
+
+    <form class="auth__form" id="form" novalidate>
+      <label class="auth__field" id="nameField" hidden>
+        <span class="auth__label">Nome</span>
+        <input type="text" id="name" autocomplete="name" placeholder="Como te chamamos?" />
+      </label>
+
+      <label class="auth__field">
+        <span class="auth__label">E-mail</span>
+        <input type="email" id="email" autocomplete="username" required placeholder="voce@email.com" />
+      </label>
+
+      <label class="auth__field" id="passField">
+        <span class="auth__label">Senha</span>
+        <span class="auth__pass">
+          <input type="password" id="password" autocomplete="current-password" required placeholder="••••••••" />
+          <button type="button" class="auth__peek" id="peek" aria-label="Mostrar senha">Ver</button>
+        </span>
+      </label>
+
+      <p class="auth__msg" id="msg" role="status" aria-live="polite"></p>
+
+      <button type="submit" class="auth__submit" id="submit">Entrar</button>
+    </form>
+
+    <div class="auth__foot">
+      <button type="button" class="auth__link" id="forgot">Esqueci minha senha</button>
+      <button type="button" class="auth__link auth__link--muted" id="openSite">Entrar com Google no site</button>
+    </div>
+
+    <!-- A confirmação do login NÃO mora mais aqui: ela é um modal do widget
+         (AuthSuccessModal), que substitui este iframe inteiro. Duas telas no
+         mesmo documento era o que empilhava formulário + confirmação. -->
+  </main>
+
+  <script src="auth.js"></script>
+</body>
+</html>

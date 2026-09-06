@@ -1,0 +1,162 @@
+/**
+ * Dislexfy — estilos injetados na PÁGINA do host
+ *
+ * Aqui vive só o que precisa valer no DOM da página: as regras
+ * ::highlight(...) do destaque de leitura (CSS Custom Highlight API) e suas
+ * vars, mais o véu do Modo Foco (item 6.2). Todo o resto do widget mora em
+ * widget.css, DENTRO do Shadow DOM do host <zyrex-tts> (ver content.js). O
+ * content script sincroniza data-zx-theme/data-zx-hl-color/data-zx-hl-style
+ * no <html> pro destaque valer independente do tema/estilo do widget.
+ */
+
+/* ============ Destaque de leitura (CSS Custom Highlight API) ============ */
+/* Etapa 6/item 6.1: cor (data-zx-hl-color: yellow|blue|pink) e estilo
+   (data-zx-hl-style: background|underline) configuráveis via atributos no
+   <html> — mesmo mecanismo do data-zx-theme. ATENÇÃO: var() dentro de
+   ::highlight() tem suporte irregular em Chrome antigo (105–121) — por isso
+   as regras usam cores LITERAIS por combinação (cor × tema), não var().
+   Mudou uma cor? Mude em todas as combinações abaixo (e em index.html/
+   reader.css, que espelham estas mesmas regras). */
+
+/* ---- Palavra ativa (Highlight 'zx-word', priority 2) — estilo 'background' ---- */
+/* Pastéis BDA: amarelo #FDE68A, azul #BFDBFE, rosa #FBCFE8 — ~55% alpha no
+   claro pra ficar bem visível; dessaturadas e um pouco mais opacas no dark. */
+:root,
+[data-zx-hl-color="yellow"] { --zx-hl-word-rgb: 253, 230, 138; }
+[data-zx-hl-color="blue"] { --zx-hl-word-rgb: 191, 219, 254; }
+[data-zx-hl-color="pink"] { --zx-hl-word-rgb: 251, 207, 232; }
+
+html:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(253, 230, 138, 0.55); /* amarelo (default) */
+}
+html[data-zx-hl-color="blue"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(191, 219, 254, 0.55);
+}
+html[data-zx-hl-color="pink"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(251, 207, 232, 0.55);
+}
+[data-zx-theme="dark"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(234, 208, 122, 0.45); /* amarelo dessaturado (default) */
+}
+[data-zx-theme="dark"][data-zx-hl-color="blue"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(147, 179, 220, 0.45);
+}
+[data-zx-theme="dark"][data-zx-hl-color="pink"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(214, 165, 189, 0.45);
+}
+
+/* ---- Palavra ativa — estilo 'underline' (sem fundo, sem layout shift) ---- */
+html[data-zx-hl-style="underline"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(217, 119, 6, 0.85) 3px; /* amarelo (default) */
+  text-underline-offset: 3px;
+}
+html[data-zx-hl-style="underline"][data-zx-hl-color="blue"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(37, 99, 235, 0.75) 3px;
+  text-underline-offset: 3px;
+}
+html[data-zx-hl-style="underline"][data-zx-hl-color="pink"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(219, 39, 119, 0.75) 3px;
+  text-underline-offset: 3px;
+}
+[data-zx-theme="dark"][data-zx-hl-style="underline"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(253, 230, 138, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+[data-zx-theme="dark"][data-zx-hl-style="underline"][data-zx-hl-color="blue"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(191, 219, 254, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+[data-zx-theme="dark"][data-zx-hl-style="underline"][data-zx-hl-color="pink"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(251, 207, 232, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+
+/* ---- Frase em leitura (Highlight 'zx-sentence', priority 1) ---- */
+/* Fundo sempre suave (~18% alpha) na cor escolhida, independente do estilo da
+   palavra (background/underline) — a frase é sempre uma faixa de fundo. */
+::highlight(zx-sentence) {
+  background-color: rgba(253, 230, 138, 0.20); /* amarelo (default) */
+}
+html[data-zx-hl-color="blue"] ::highlight(zx-sentence) {
+  background-color: rgba(191, 219, 254, 0.20);
+}
+html[data-zx-hl-color="pink"] ::highlight(zx-sentence) {
+  background-color: rgba(251, 207, 232, 0.20);
+}
+[data-zx-theme="dark"] ::highlight(zx-sentence) {
+  background-color: rgba(234, 208, 122, 0.14);
+}
+[data-zx-theme="dark"][data-zx-hl-color="blue"] ::highlight(zx-sentence) {
+  background-color: rgba(147, 179, 220, 0.14);
+}
+[data-zx-theme="dark"][data-zx-hl-color="pink"] ::highlight(zx-sentence) {
+  background-color: rgba(214, 165, 189, 0.14);
+}
+
+/* ---- Rastro do que já foi lido (Highlight 'zx-past', priority 0) ---- */
+/* Só registrado pelo engine quando hlTrail está ligado (custo zero quando
+   desligado — decisão D3). SEMPRE cinza neutro, nunca a cor do destaque: o
+   objetivo é dar senso de progresso sem competir com a palavra ativa. */
+::highlight(zx-past) {
+  background-color: rgba(107, 114, 128, 0.08);
+}
+[data-zx-theme="dark"] ::highlight(zx-past) {
+  background-color: rgba(156, 163, 175, 0.14);
+}
+
+/* ============ Tipografia amigável no trecho em leitura (item 6.3) ======== */
+/* Classe aplicada ao container/bloco em leitura quando readFont != 'page' e/ou
+   readSpacing está ligado. !important pra vencer estilos do site (o mesmo
+   container tem CSS próprio da página). As fontes (@font-face) são injetadas
+   lazy por ensureFontFace() em content.js — não pesam a página até serem
+   usadas pela 1ª vez. */
+.zx-reading-typo {
+  line-height: 1.7 !important;
+}
+.zx-reading-typo.zx-reading-spacing {
+  letter-spacing: 0.035em !important;
+  word-spacing: 0.16em !important;
+}
+.zx-reading-typo[data-zx-read-font="atkinson"] {
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif !important;
+}
+.zx-reading-typo[data-zx-read-font="opendyslexic"] {
+  font-family: "OpenDyslexic", system-ui, -apple-system, sans-serif !important;
+}
+.zx-reading-typo[data-zx-read-font="lexend"] {
+  font-family: "Lexend", system-ui, -apple-system, sans-serif !important;
+}
+
+/* ============ Modo Foco (item 6.2) ======================================= */
+/* Véu único fora do shadow do widget (cobre a PÁGINA inteira): box-shadow
+   gigante recorta um "buraco" iluminado sobre o container em leitura.
+   pointer-events:none mantém a página 100% interativa por baixo. z-index
+   abaixo do widget (2147483000) e do botão de parágrafo (2147482900), mas
+   acima do conteúdo normal da página. */
+#zx-focus-veil {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 2147482800;
+  opacity: 0;
+  transition: opacity 0.25s ease, top 0.15s ease, left 0.15s ease, width 0.15s ease, height 0.15s ease;
+  box-shadow: 0 0 0 200vmax rgba(15, 23, 42, 0.45);
+}
+#zx-focus-veil.zx-focus-active {
+  opacity: 1;
+}
+#zx-focus-veil.zx-focus-dim {
+  opacity: 0.4; /* ~20% da intensidade original enquanto pausado */
+}
+[data-zx-theme="dark"] #zx-focus-veil {
+  box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  #zx-focus-veil {
+    transition: opacity 0.15s linear;
+  }
+}

@@ -1,0 +1,785 @@
+/**
+ * Dislexfy — reader.css (Modo Leitura): layout, tipografia, temas e player.
+ *
+ * Cobre o layout/tipografia/3 temas (5.2) e os estilos do player integrado
+ * (5.3): botão de leitura por bloco (.zx-block-play) e modo foco (.zx-focus-mode).
+ *
+ * reader.html é página de extensão (chrome-extension://.../reader/reader.html)
+ * — caminho relativo às fontes funciona sem chrome.runtime.getURL.
+ */
+
+/* ============================== Fontes ================================= */
+/* Vendorizadas em extension/fonts/ (Etapa 0/1). reader/ está um nível abaixo
+   da raiz da extensão, por isso "../fonts/...". */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("../fonts/atkinson-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("../fonts/atkinson-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../fonts/opendyslexic-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lexend";
+  src: url("../fonts/lexend-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================ Reset básico ============================== */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+img, svg { max-width: 100%; }
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+a { color: var(--zx-accent-text); }
+
+.zx-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ================================ Temas ================================= */
+/* Três temas via data-zx-theme no <html>. Nunca branco puro no claro (glare).
+   Sépia segue a recomendação da British Dyslexia Association. Vars --zx-hl-*
+   recalibradas por tema para o ::highlight (mesmo highlight-engine do widget;
+   copiado de extension/highlight.css e ajustado ao fundo de cada tema). */
+:root,
+/* Acento = AMARELO da marca (#F8D832), como a página /ler. Como amarelo puro
+   é ilegível COMO TEXTO sobre fundo claro, separamos três papéis:
+     --zx-accent      → fundo amarelo (botão primário, chip ativo, borda)
+     --zx-accent-ink  → texto PRETO que vai SOBRE o amarelo
+     --zx-accent-text → o "amarelo como texto" legível no fundo do tema
+                        (âmbar escuro no claro/sépia; amarelo puro no escuro) */
+html[data-zx-theme="light"] {
+  --zx-bg: #fbf6e7;
+  --zx-bg-raised: #ffffff;
+  --zx-text: #262421;
+  --zx-muted: #6b6558;
+  --zx-border: rgba(38, 36, 33, 0.12);
+  --zx-accent: #f8d832;
+  --zx-accent-ink: #0d0d0d;
+  --zx-accent-text: #8a6d00;
+  --zx-accent-soft: rgba(248, 216, 50, 0.18);
+  --zx-danger: #dc2626;
+  --zx-shadow: 0 -2px 12px rgba(15, 23, 42, 0.08);
+  --zx-reading-bg: rgba(248, 216, 50, 0.12);
+  --zx-hl-strong: rgba(139, 92, 246, 0.45);
+  --zx-hl-sentence: rgba(139, 92, 246, 0.16);
+}
+
+html[data-zx-theme="sepia"] {
+  --zx-bg: #f5ecd9;
+  --zx-bg-raised: #faf3e3;
+  --zx-text: #40361f;
+  --zx-muted: #7a6b48;
+  --zx-border: rgba(64, 54, 31, 0.16);
+  --zx-accent: #f8d832;
+  --zx-accent-ink: #0d0d0d;
+  --zx-accent-text: #7a5a10;
+  --zx-accent-soft: rgba(248, 216, 50, 0.22);
+  --zx-danger: #b3401f;
+  --zx-shadow: 0 -2px 12px rgba(64, 54, 31, 0.12);
+  --zx-reading-bg: rgba(248, 216, 50, 0.14);
+  --zx-hl-strong: rgba(180, 83, 9, 0.35);
+  --zx-hl-sentence: rgba(180, 83, 9, 0.16);
+}
+
+html[data-zx-theme="dark"] {
+  --zx-bg: #14150f;
+  --zx-bg-raised: #1d1e17;
+  --zx-text: #e6e9ef;
+  --zx-muted: #9ca3af;
+  --zx-border: rgba(255, 255, 255, 0.1);
+  --zx-accent: #f8d832;
+  --zx-accent-ink: #0d0d0d;
+  --zx-accent-text: #f8d832;
+  --zx-accent-soft: rgba(248, 216, 50, 0.16);
+  --zx-danger: #f87171;
+  --zx-shadow: 0 -2px 16px rgba(0, 0, 0, 0.4);
+  --zx-reading-bg: rgba(248, 216, 50, 0.10);
+  --zx-hl-strong: rgba(196, 181, 253, 0.55);
+  --zx-hl-sentence: rgba(196, 181, 253, 0.22);
+}
+
+/* ::highlight() não aceita seletor combinado com var() de forma confiável em
+   todo Chrome 105+ (mesmo aviso de extension/highlight.css) — regras
+   literais por tema, espelhando as vars acima. Mudou a cor? Mude nos dois
+   lugares. Palavra ativa (zx-word, priority 2) e frase (zx-sentence,
+   priority 1) — o próximo agente (5.3) é quem popula os Highlight objects
+   via lib/highlight-engine.js; o CSS já fica pronto. */
+/* Destaque configurável por cor (data-zx-hl-color: yellow|blue|pink) e estilo
+   (data-zx-hl-style: background|underline), espelhando extension/highlight.css
+   — as MESMAS cores/alphas do widget, para coerência entre widget e Modo
+   Leitura. Pastéis BDA: amarelo #FDE68A, azul #BFDBFE, rosa #FBCFE8. Sépia usa
+   as regras-base (claro) — pastel sobre fundo quente funciona bem. Mudou uma
+   cor? Ajuste aqui, em extension/highlight.css e em index.html. */
+
+/* ---- Palavra ativa (zx-word) — estilo 'background' (padrão) ---- */
+html:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(253, 230, 138, 0.55); /* amarelo (default) */
+}
+html[data-zx-hl-color="blue"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(191, 219, 254, 0.55);
+}
+html[data-zx-hl-color="pink"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(251, 207, 232, 0.55);
+}
+html[data-zx-theme="dark"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(234, 208, 122, 0.45);
+}
+html[data-zx-theme="dark"][data-zx-hl-color="blue"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(147, 179, 220, 0.45);
+}
+html[data-zx-theme="dark"][data-zx-hl-color="pink"]:not([data-zx-hl-style="underline"]) ::highlight(zx-word) {
+  background-color: rgba(214, 165, 189, 0.45);
+}
+
+/* ---- Palavra ativa — estilo 'underline' (sem fundo, sem layout shift) ---- */
+html[data-zx-hl-style="underline"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(217, 119, 6, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+html[data-zx-hl-style="underline"][data-zx-hl-color="blue"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(37, 99, 235, 0.75) 3px;
+  text-underline-offset: 3px;
+}
+html[data-zx-hl-style="underline"][data-zx-hl-color="pink"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(219, 39, 119, 0.75) 3px;
+  text-underline-offset: 3px;
+}
+html[data-zx-theme="dark"][data-zx-hl-style="underline"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(253, 230, 138, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+html[data-zx-theme="dark"][data-zx-hl-style="underline"][data-zx-hl-color="blue"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(191, 219, 254, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+html[data-zx-theme="dark"][data-zx-hl-style="underline"][data-zx-hl-color="pink"] ::highlight(zx-word) {
+  text-decoration: underline solid rgba(251, 207, 232, 0.85) 3px;
+  text-underline-offset: 3px;
+}
+
+/* ---- Frase em leitura (zx-sentence) — sempre faixa de fundo suave na cor ---- */
+::highlight(zx-sentence) {
+  background-color: rgba(253, 230, 138, 0.20); /* amarelo (default) */
+}
+html[data-zx-hl-color="blue"] ::highlight(zx-sentence) {
+  background-color: rgba(191, 219, 254, 0.20);
+}
+html[data-zx-hl-color="pink"] ::highlight(zx-sentence) {
+  background-color: rgba(251, 207, 232, 0.20);
+}
+html[data-zx-theme="dark"] ::highlight(zx-sentence) {
+  background-color: rgba(234, 208, 122, 0.14);
+}
+html[data-zx-theme="dark"][data-zx-hl-color="blue"] ::highlight(zx-sentence) {
+  background-color: rgba(147, 179, 220, 0.14);
+}
+html[data-zx-theme="dark"][data-zx-hl-color="pink"] ::highlight(zx-sentence) {
+  background-color: rgba(214, 165, 189, 0.14);
+}
+
+body {
+  background: var(--zx-bg);
+  color: var(--zx-text);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
+}
+
+/* ============================ Fonte selecionada ========================= */
+/* data-zx-font no <html>; padrão Atkinson Hyperlegible (D6/decisão de fonte). */
+html[data-zx-font="atkinson"] #zx-article,
+html[data-zx-font="atkinson"] .zx-topbar-title {
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+}
+html[data-zx-font="lexend"] #zx-article,
+html[data-zx-font="lexend"] .zx-topbar-title {
+  font-family: "Lexend", system-ui, -apple-system, sans-serif;
+}
+html[data-zx-font="opendyslexic"] #zx-article,
+html[data-zx-font="opendyslexic"] .zx-topbar-title {
+  font-family: "OpenDyslexic", system-ui, -apple-system, sans-serif;
+}
+.zx-controlbar, .zx-topbar {
+  /* Atkinson Hyperlegible na UI (já vendorizada) — a fonte de leitura da marca,
+     mais legível que system-ui e coerente com o resto do produto. */
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ============================== Barra superior =========================== */
+.zx-topbar {
+  /* fixed (não sticky): dentro do layout flex do body o sticky escapava ao
+     rolar; fixed ancora no viewport do documento/iframe e nunca some — mesmo
+     padrão da .zx-controlbar de baixo. O padding-top da .zx-reader-scroll
+     reserva o espaço para o conteúdo não nascer embaixo do header. */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--zx-bg-raised);
+  border-bottom: 1px solid var(--zx-border);
+  min-height: 44px;
+}
+.zx-topbar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Wordmark da marca. O SVG usa currentColor e renderiza claro; nos temas claro
+   e sépia invertemos pra ficar escuro sobre o fundo claro (mesmo truque da
+   página /ler). Um divisor sutil separa a marca do título da página. */
+.zx-topbar-logo {
+  height: 18px;
+  width: auto;
+  flex: none;
+  display: block;
+  padding-right: 10px;
+  border-right: 1px solid var(--zx-border);
+}
+html[data-zx-theme="light"] .zx-topbar-logo,
+html[data-zx-theme="sepia"] .zx-topbar-logo { filter: invert(1); }
+.zx-topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zx-topbar-source {
+  font-size: 12px;
+  color: var(--zx-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zx-topbar-source:hover { text-decoration: underline; }
+.zx-topbar-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.zx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--zx-muted);
+}
+/* Alvo de clique >= 44px (WCAG 2.5.5) sem inflar o ícone visualmente: o
+   topbar tem só 44px de altura útil, então a área extra vem via ::before
+   invisível centralizado em vez de crescer width/height (que quebraria o
+   alinhamento com zx-topbar-info). */
+.zx-topbar-actions .zx-icon-btn {
+  position: relative;
+}
+.zx-topbar-actions .zx-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.zx-icon-btn:hover { background: var(--zx-accent-soft); color: var(--zx-accent-text); }
+.zx-icon-btn:focus-visible,
+.zx-chip:focus-visible,
+.zx-ctrl-btn:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 2px;
+}
+
+/* ================================ Coluna ================================= */
+.zx-reader-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* padding-top reserva o espaço do header fixo (min-height 44 + padding 20 +
+     borda ≈ 65px); folga extra para respiro. */
+  padding: 76px 20px 0;
+}
+.zx-column {
+  /* font-size igual ao texto pra o `ch` da largura bater com a fonte de leitura
+     (a var vem do <html>, atualizada pelo A-/A+). Larguras generosas no desktop:
+     o usuário achou a coluna estreita demais no monitor. */
+  font-size: var(--zx-font-size, 19px);
+  --zx-col-width: 78ch;
+  width: 100%;
+  max-width: var(--zx-col-width);
+}
+html[data-zx-width="55"] .zx-column { --zx-col-width: 62ch; }
+html[data-zx-width="65"] .zx-column { --zx-col-width: 78ch; }
+html[data-zx-width="75"] .zx-column { --zx-col-width: 96ch; }
+
+.zx-scroll-spacer {
+  height: 96px; /* reserva pra barra de controles fixa não cobrir o fim do texto */
+  flex-shrink: 0;
+}
+
+/* ============================== Tipografia =============================== */
+#zx-article {
+  --zx-font-size: 19px;
+  font-size: var(--zx-font-size);
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  /* Justificado cria "rios" de espaço em branco — ruim pra dislexia; texto
+     sempre alinhado à esquerda, nunca `text-align: justify`. */
+  text-align: left;
+  padding: 28px 0 8px;
+}
+
+#zx-article h1.zx-article-title {
+  font-size: calc(var(--zx-font-size) * 1.7);
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0 0 8px;
+}
+#zx-article .zx-article-byline {
+  font-size: calc(var(--zx-font-size) * 0.78);
+  color: var(--zx-muted);
+  margin: 0 0 28px;
+  letter-spacing: 0.01em;
+}
+
+/* Aviso de artigo truncado (item 5.6 — cota de chrome.storage.session). */
+#zx-article .zx-truncated-notice {
+  font-size: calc(var(--zx-font-size) * 0.8);
+  color: var(--zx-text);
+  background: var(--zx-accent-soft);
+  border: 1px solid var(--zx-border);
+  border-radius: 8px;
+  padding: 0.7em 1em;
+  margin: 0 0 1.6em;
+  line-height: 1.5;
+}
+
+#zx-article h2 {
+  font-size: calc(var(--zx-font-size) * 1.35);
+  line-height: 1.4;
+  font-weight: 700;
+  margin: 1.6em 0 0.6em;
+}
+#zx-article h3 {
+  font-size: calc(var(--zx-font-size) * 1.15);
+  line-height: 1.4;
+  font-weight: 700;
+  margin: 1.4em 0 0.5em;
+}
+#zx-article h4, #zx-article h5, #zx-article h6 {
+  font-size: calc(var(--zx-font-size) * 1.05);
+  font-weight: 700;
+  margin: 1.2em 0 0.4em;
+}
+
+#zx-article p {
+  margin: 0 0 1.2em;
+}
+#zx-article ul, #zx-article ol {
+  margin: 0 0 1.2em;
+  padding-left: 1.6em;
+}
+#zx-article li {
+  margin-bottom: 0.5em;
+}
+#zx-article blockquote {
+  margin: 1.4em 0;
+  padding: 0.2em 0 0.2em 1em;
+  border-left: 3px solid var(--zx-accent);
+  color: var(--zx-muted);
+  font-style: italic;
+}
+#zx-article code {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--zx-accent-soft);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+#zx-article pre {
+  overflow-x: auto;
+  padding: 1em;
+  border-radius: 8px;
+  background: var(--zx-accent-soft);
+}
+#zx-article pre code { background: none; padding: 0; }
+
+#zx-article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4em 0;
+  font-size: 0.9em;
+}
+#zx-article th, #zx-article td {
+  border: 1px solid var(--zx-border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+/* Trecho em leitura (fundo sutil) — classe aplicada no parágrafo/bloco ativo
+   durante a reprodução (item 5.3). */
+#zx-article .zx-reading-active {
+  background: var(--zx-reading-bg);
+  border-radius: 6px;
+  margin-left: -0.6em;
+  margin-right: -0.6em;
+  padding-left: 0.6em;
+  padding-right: 0.6em;
+  position: relative;
+}
+
+/* Modo foco: esmaece os blocos que não estão em leitura, sem apagar de vez
+   (opacidade, não display). MIRA NOS BLOCOS-FOLHA, não nos filhos diretos de
+   #zx-article: os blocos vivem dentro de .zx-article-body (h1/byline são
+   filhos diretos, os p/li/etc. não), e opacidade num container arrastaria o
+   bloco ativo junto — era por isso que "tudo ficava opaco e nada se
+   destacava". :not(:has(.zx-reading-active)) evita dimar um ancestral do
+   bloco ativo (ex.: o <ul> de um <li> em leitura). :has()/:is() são estáveis
+   no Chrome 105+ (minimum_chrome_version). */
+#zx-article.zx-focus-mode
+  :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, figure, figcaption, pre, table, ul, ol):not(.zx-reading-active):not(:has(.zx-reading-active)) {
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #zx-article.zx-focus-mode
+    :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, figure, figcaption, pre, table, ul, ol):not(.zx-reading-active):not(:has(.zx-reading-active)) {
+    transition: none;
+  }
+}
+
+/* Botão de play na margem esquerda de cada bloco legível (item 5.3). Nasce
+   com opacidade baixa e some de vez com blur/mouse fora — visível sempre
+   (mesmo sem hover) mas discreto, conforme decisão da tarefa. */
+.zx-block-play {
+  position: absolute;
+  left: -34px;
+  top: 0.15em;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--zx-muted);
+  opacity: 0.35;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+/* Área de toque >= 44px sem alterar o tamanho visual discreto (26px) —
+   mesma técnica do .zx-icon-btn do topbar. */
+.zx-block-play::before {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.zx-block-play:hover,
+.zx-block-play:focus-visible {
+  opacity: 1;
+  background: var(--zx-accent-soft);
+  color: var(--zx-accent-text);
+}
+.zx-block-play.zx-block-playing {
+  opacity: 1;
+  color: var(--zx-accent-text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .zx-block-play { transition: none; }
+}
+/* Colunas estreitas (mobile) não têm espaço pra margem — o botão migra pra
+   dentro, antes do texto do bloco. */
+@media (max-width: 640px) {
+  .zx-block-play {
+    position: static;
+    float: left;
+    margin: 0.1em 6px 0.1em 0;
+  }
+}
+
+/* Live region de status: fica invisível (herda .zx-sr-only do HTML) — nada
+   extra necessário aqui, mantido por clareza documental. */
+
+/* =============================== Imagens ================================= */
+#zx-article figure {
+  margin: 1.6em 0;
+}
+#zx-article img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0 auto;
+}
+#zx-article figcaption {
+  font-size: 0.78em;
+  color: var(--zx-muted);
+  text-align: center;
+  margin-top: 0.6em;
+  line-height: 1.5;
+}
+/* Toggle "ocultar imagens" — aplicado no <html> via data-zx-images. */
+html[data-zx-images="hide"] #zx-article figure {
+  display: none;
+}
+
+.zx-empty-state {
+  color: var(--zx-muted);
+  font-style: italic;
+}
+
+/* ============================ Barra de controles ========================= */
+.zx-controlbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  background: var(--zx-bg-raised);
+  border-top: 1px solid var(--zx-border);
+  box-shadow: var(--zx-shadow);
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.zx-controlbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.zx-controlbar-audio {
+  justify-content: center;
+}
+.zx-controlbar-appearance {
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--zx-border);
+  font-size: 12px;
+}
+
+/* Alvos de clique >= 44px (barra de controles). */
+.zx-ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  color: var(--zx-text);
+}
+.zx-ctrl-btn:hover:not(:disabled) { background: var(--zx-accent-soft); color: var(--zx-accent-text); }
+.zx-ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.zx-ctrl-label { font-size: 11px; }
+
+.zx-ctrl-btn-primary {
+  background: var(--zx-accent);
+  color: var(--zx-accent-ink);
+  min-width: 140px;
+  font-weight: 700;
+}
+.zx-ctrl-btn-primary:hover:not(:disabled) { background: var(--zx-accent); opacity: 0.9; color: var(--zx-accent-ink); }
+.zx-ctrl-btn-primary:disabled { background: var(--zx-muted); opacity: 0.5; }
+.zx-ctrl-btn-primary .zx-ctrl-label { font-size: 13px; }
+
+.zx-ctrl-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+}
+.zx-ctrl-field-label {
+  font-size: 12px;
+  color: var(--zx-muted);
+  white-space: nowrap;
+}
+.zx-ctrl-field-value {
+  font-size: 12px;
+  color: var(--zx-muted);
+  min-width: 34px;
+  text-align: center;
+}
+.zx-select {
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--zx-border);
+  background: var(--zx-bg-raised);
+  color: var(--zx-text);
+}
+.zx-select:disabled { opacity: 0.5; }
+.zx-range {
+  width: 100px;
+  accent-color: var(--zx-accent);
+}
+.zx-range:disabled { opacity: 0.5; }
+
+.zx-ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+}
+.zx-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--zx-border);
+  font-size: 12px;
+  color: var(--zx-text);
+  white-space: nowrap;
+}
+.zx-chip:hover { background: var(--zx-accent-soft); }
+.zx-chip[aria-pressed="true"] {
+  background: var(--zx-accent);
+  border-color: var(--zx-accent);
+  color: var(--zx-accent-ink);
+}
+
+/* Swatches de cor do destaque (amarelo/azul/rosa) — bolinhas coloridas com
+   anel de seleção. Cores fixas (não seguem tema) porque representam a própria
+   cor do destaque. */
+.zx-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--zx-border);
+  padding: 0;
+  cursor: pointer;
+}
+.zx-swatch-yellow { background: #fde68a; }
+.zx-swatch-blue { background: #bfdbfe; }
+.zx-swatch-pink { background: #fbcfe8; }
+.zx-swatch[aria-pressed="true"] {
+  border-color: var(--zx-accent);
+  box-shadow: 0 0 0 2px var(--zx-accent-soft);
+}
+
+.zx-ctrl-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--zx-muted);
+  cursor: pointer;
+}
+.zx-ctrl-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--zx-accent);
+  cursor: pointer;
+}
+
+/* ============================== Responsivo ================================ */
+@media (max-width: 640px) {
+  .zx-controlbar-row { justify-content: flex-start; }
+  .zx-ctrl-field-label { display: none; }
+  .zx-topbar-source { display: none; }
+}
+
+/* ============================== Impressão / PDF ========================== */
+/* "Salvar PDF" usa a impressão do navegador (Salvar como PDF). O PDF respeita
+   as escolhas do menu que afetam o texto — tamanho (--zx-font-size), fonte
+   (data-zx-font), largura da coluna (data-zx-width) e imagens (data-zx-images)
+   continuam valendo porque estão no <html>/#zx-article. Escondemos só a UI
+   (header, controles, botões de bloco) e forçamos texto preto sobre branco:
+   o fundo do tema (sépia/escuro) não vai ao papel — legibilidade e economia de
+   tinta em primeiro lugar. */
+@media print {
+  .zx-topbar,
+  .zx-controlbar,
+  .zx-scroll-spacer,
+  .zx-block-play,
+  #zx-live-status {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .zx-reader-scroll {
+    padding: 0 !important;
+    display: block !important;
+  }
+  .zx-column {
+    margin: 0 auto !important; /* mantém a coluna centrada (respeita a largura escolhida) */
+  }
+  #zx-article,
+  #zx-article * {
+    color: #000 !important;
+  }
+  #zx-article a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+  /* Evita cortar imagens/blocos no meio entre páginas. */
+  #zx-article img,
+  #zx-article figure,
+  #zx-article table,
+  #zx-article blockquote {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

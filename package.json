@@ -45,6 +45,9 @@
       "!src/assets/zeos-logo.png"
     ],
     "asar": true,
+    "asarUnpack": [
+      "src/bundled-extensions/**"
+    ],
     "electronFuses": {
       "runAsNode": false,
       "enableCookieEncryption": true,

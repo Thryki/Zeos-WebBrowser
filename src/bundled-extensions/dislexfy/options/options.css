@@ -1,0 +1,425 @@
+/**
+ * Dislexfy — estilos da options page (item 4.6)
+ *
+ * Página própria (fora do Shadow DOM do widget) — por isso NÃO importa
+ * widget.css: é um documento HTML normal carregado pelo Chrome
+ * (chrome-extension://…/options/options.html), sem risco de vazar/herdar
+ * estilo de página nenhuma. Reaproveita a mesma linguagem visual (accent
+ * #2563eb, switches arredondados, cantos de 12-14px) com CSS próprio e
+ * mínimo. Suporta modo escuro do sistema via prefers-color-scheme — não há
+ * toggle "aplicar tema à página de opções": o toggle "Modo escuro" aqui
+ * dentro controla o TEMA DO WIDGET (zyrex_prefs.dark), não o desta página.
+ */
+
+:root {
+  --zx-bg-page: #f4f5f7;
+  --zx-bg-card: #ffffff;
+  --zx-text: #0f1115;
+  --zx-muted: #6b7280;
+  --zx-border: rgba(15, 23, 42, 0.10);
+  --zx-accent: #2563eb;
+  --zx-accent-soft: rgba(37, 99, 235, 0.10);
+  --zx-danger: #b91c1c;
+  --zx-danger-bg: rgba(239, 68, 68, 0.08);
+  --zx-ok: #067647;
+  --zx-ok-bg: rgba(16, 185, 129, 0.10);
+  --zx-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --zx-bg-page: #16181d;
+    --zx-bg-card: #1c1e24;
+    --zx-text: #e6e9ef;
+    --zx-muted: #9ca3af;
+    --zx-border: rgba(255, 255, 255, 0.10);
+    --zx-accent: #60a5fa;
+    --zx-accent-soft: rgba(96, 165, 250, 0.16);
+    --zx-danger: #fca5a5;
+    --zx-danger-bg: rgba(239, 68, 68, 0.14);
+    --zx-ok: #6ee7b7;
+    --zx-ok-bg: rgba(52, 211, 153, 0.14);
+    --zx-shadow: 0 1px 2px rgba(0, 0, 0, 0.20), 0 8px 24px rgba(0, 0, 0, 0.30);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--zx-bg-page);
+  color: var(--zx-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.zx-opt-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.zx-opt-header h1 {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.zx-opt-subtitle {
+  margin: 0 0 24px;
+  color: var(--zx-muted);
+  font-size: 14px;
+}
+
+.zx-opt-card {
+  background: var(--zx-bg-card);
+  border: 1px solid var(--zx-border);
+  border-radius: 14px;
+  box-shadow: var(--zx-shadow);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.zx-opt-card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.zx-opt-field {
+  margin-bottom: 16px;
+}
+.zx-opt-field:last-child { margin-bottom: 0; }
+
+.zx-opt-field > label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.zx-opt-hint {
+  margin: 0 0 10px;
+  color: var(--zx-muted);
+  font-size: 13px;
+}
+.zx-opt-hint code {
+  background: var(--zx-accent-soft);
+  color: var(--zx-accent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.zx-opt-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#zx-api-url {
+  flex: 1;
+  min-width: 0;
+  background: var(--zx-bg-card);
+  color: var(--zx-text);
+  border: 1px solid var(--zx-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+#zx-api-url:focus-visible {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 1px;
+}
+#zx-api-url[aria-invalid="true"] {
+  border-color: var(--zx-danger);
+}
+
+.zx-opt-error {
+  margin: 8px 0 0;
+  color: var(--zx-danger);
+  background: var(--zx-danger-bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.zx-opt-test-result {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 1.4em;
+}
+.zx-opt-test-result[data-state="ok"] {
+  color: var(--zx-ok);
+}
+.zx-opt-test-result[data-state="error"] {
+  color: var(--zx-danger);
+}
+.zx-opt-test-result[data-state="pending"] {
+  color: var(--zx-muted);
+  font-weight: 500;
+}
+
+/* Botões */
+.zx-opt-btn {
+  border: 1px solid var(--zx-border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.zx-opt-btn:focus-visible {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 2px;
+}
+.zx-opt-btn-secondary {
+  background: var(--zx-accent-soft);
+  color: var(--zx-accent);
+  border-color: transparent;
+}
+.zx-opt-btn-secondary:hover { background: var(--zx-accent); color: #fff; }
+.zx-opt-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Selects e campos de texto — mesma casca do input de API. */
+.zx-opt-card select,
+.zx-opt-card input[type="email"],
+.zx-opt-card input[type="password"] {
+  width: 100%;
+  min-width: 0;
+  background: var(--zx-bg-card);
+  color: var(--zx-text);
+  border: 1px solid var(--zx-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.zx-opt-card select:focus-visible,
+.zx-opt-card input:focus-visible {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 1px;
+}
+.zx-opt-row select { flex: 1; }
+.zx-opt-row-end { justify-content: flex-end; }
+
+/* Conta */
+.zx-opt-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.zx-opt-account-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.zx-opt-account-id strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zx-opt-plan {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(107, 114, 128, 0.18);
+  color: var(--zx-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.zx-opt-plan[data-pro="1"] {
+  background: var(--zx-ok-bg);
+  color: var(--zx-ok);
+}
+.zx-opt-btn-primary {
+  background: var(--zx-accent);
+  color: #fff;
+  border-color: transparent;
+}
+.zx-opt-btn-primary:hover { filter: brightness(1.08); }
+
+/* Amostras de cor do destaque */
+.zx-opt-swatches {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.zx-opt-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--zx-border);
+}
+.zx-opt-swatch[data-color="yellow"] { background: #f8d832; }
+.zx-opt-swatch[data-color="blue"] { background: #9cc4f7; }
+.zx-opt-swatch[data-color="pink"] { background: #f7a8d0; }
+.zx-opt-swatch[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--zx-bg-card), 0 0 0 4px var(--zx-accent);
+}
+.zx-opt-swatch:focus-visible {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 4px;
+}
+
+/* Grupo dependente do toggle "Destacar palavras". */
+#zx-hl-group[data-off="1"] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Quem pediu menos movimento não leva transição nenhuma. */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* Velocidade */
+.zx-opt-speed-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.zx-opt-speed-row label { margin-bottom: 0; }
+#zx-speed-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--zx-accent);
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--zx-accent);
+  height: 24px;
+}
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 2px;
+}
+
+/* Toggles */
+.zx-opt-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--zx-border);
+  cursor: pointer;
+}
+.zx-opt-card h2 + .zx-opt-toggle-row {
+  border-top: none;
+  padding-top: 0;
+}
+.zx-opt-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.zx-opt-toggle-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--zx-text);
+}
+.zx-opt-toggle-desc {
+  font-size: 12.5px;
+  color: var(--zx-muted);
+}
+
+.zx-opt-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex: none;
+  display: inline-block;
+}
+.zx-opt-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.zx-opt-switch-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(107, 114, 128, 0.35);
+  border-radius: 999px;
+  transition: background 0.15s;
+  pointer-events: none;
+}
+.zx-opt-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+.zx-opt-switch input:checked ~ .zx-opt-switch-track {
+  background: var(--zx-accent);
+}
+.zx-opt-switch input:checked ~ .zx-opt-switch-thumb {
+  transform: translateX(18px);
+}
+.zx-opt-switch input:focus-visible ~ .zx-opt-switch-track {
+  outline: 2px solid var(--zx-accent);
+  outline-offset: 2px;
+}
+
+.zx-opt-status {
+  text-align: center;
+  color: var(--zx-muted);
+  font-size: 13px;
+  min-height: 1.4em;
+  margin: 4px 0 0;
+}
+
+/* Rodapé: links pro site oficial e apoio ao projeto (mesma linguagem visual). */
+.zx-opt-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 18px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--zx-border);
+}
+.zx-opt-link {
+  color: var(--zx-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+.zx-opt-link:hover { color: var(--zx-accent); text-decoration: underline; }
+.zx-opt-link-support { color: var(--zx-accent); font-weight: 600; }
+/* Botão com cara de link (Atalhos do teclado) — mesma linguagem do rodapé. */
+.zx-opt-linkbtn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+}

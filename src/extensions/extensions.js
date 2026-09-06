@@ -111,6 +111,14 @@ function renderExtensionCard(ext) {
   versionEl.textContent = ext.version || '1.0';
   nameEl.appendChild(versionEl);
 
+  if (ext.builtin) {
+    const builtinEl = document.createElement('span');
+    builtinEl.className = 'card-builtin';
+    builtinEl.textContent = 'Integrada ao Zeos';
+    builtinEl.title = 'Esta extensão vem com o navegador e não pode ser removida.';
+    nameEl.appendChild(builtinEl);
+  }
+
   const descEl = document.createElement('div');
   descEl.className = 'card-desc';
   descEl.textContent = ext.description || 'Extensão instalada no Zeos WebBrowser.';
@@ -184,9 +192,11 @@ function renderExtensionCard(ext) {
   detailsBtn.textContent = 'Saiba mais';
   detailsBtn.addEventListener('click', () => openDetailsModal(ext));
 
+  // Extensions that ship with Zeos can be turned off but never removed.
   const removeBtn = document.createElement('button');
   removeBtn.className = 'card-btn danger';
   removeBtn.textContent = 'Remover';
+  removeBtn.hidden = Boolean(ext.builtin);
   removeBtn.addEventListener('click', async () => {
     if (confirm(`Deseja realmente remover a extensão "${ext.name}"?`)) {
       if (window.zeosExtensions) {

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR" data-zx-theme="light" data-zx-font="atkinson" data-zx-width="65" data-zx-images="show">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dislexfy — Modo Leitura</title>
+  <link rel="icon" href="../img/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="reader.css" />
+</head>
+<body>
+  <!-- Barra superior fina: logo da marca, título curto, origem, pop-out, fechar. -->
+  <header class="zx-topbar" id="zx-topbar" role="banner" aria-label="Barra superior do Modo Leitura">
+    <div class="zx-topbar-info">
+      <img class="zx-topbar-logo" src="../img/wordmark.svg" alt="Dislexfy" height="18" />
+      <span class="zx-topbar-title" id="zx-topbar-title" tabindex="-1">Modo Leitura</span>
+      <a class="zx-topbar-source" id="zx-topbar-source" href="#" target="_blank" rel="noopener noreferrer" hidden>
+        <span class="zx-topbar-source-text" id="zx-topbar-source-text"></span>
+      </a>
+    </div>
+    <div class="zx-topbar-actions">
+      <button type="button" class="zx-icon-btn" id="zx-btn-pdf" aria-label="Salvar como PDF" title="Salvar como PDF">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v6h4v3h12v-3h4v-6a3 3 0 0 0-3-3zM8 5h8v3H8V5zm8 14H8v-4h8v4zm4-5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+      </button>
+      <button type="button" class="zx-icon-btn" id="zx-btn-popout" aria-label="Abrir em nova aba" title="Abrir em nova aba">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z"/></svg>
+      </button>
+      <button type="button" class="zx-icon-btn" id="zx-btn-close" aria-label="Fechar Modo Leitura" title="Fechar (Esc)">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4l-6.3 6.3-1.41-1.41L9.17 12l-6.3-6.29L4.3 4.3l6.3 6.3 6.29-6.3z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Live region de status: reader.js escreve aqui a cada mudança de estado
+       do player ('Gerando áudio...', 'Lendo.', 'Pausado.', 'Fim da leitura.')
+       e nos avisos de extração/truncamento — role=status + aria-live=polite
+       garante que leitores de tela anunciem sem interromper o foco atual. -->
+  <div id="zx-live-status" class="zx-sr-only" role="status" aria-live="polite"></div>
+
+  <main class="zx-reader-scroll" id="zx-reader-scroll" role="main" aria-label="Conteúdo do artigo">
+    <div class="zx-column" id="zx-column" style="max-width: var(--zx-col-width)">
+      <article id="zx-article">
+        <p class="zx-empty-state" id="zx-empty-state">Carregando artigo…</p>
+      </article>
+    </div>
+    <!-- espaço reservado pra barra de controles fixa não cobrir o fim do texto -->
+    <div class="zx-scroll-spacer" aria-hidden="true"></div>
+  </main>
+
+  <!-- Barra de controles fixa no rodapé. IDs abaixo são o contrato pro
+       próximo agente (item 5.3) ligar o player — ver relatório. -->
+  <footer class="zx-controlbar" id="zx-controlbar" role="toolbar" aria-label="Controles de leitura e aparência">
+    <div class="zx-controlbar-row zx-controlbar-audio" role="group" aria-label="Reprodução de áudio">
+      <button type="button" class="zx-ctrl-btn" id="zx-btn-rewind" aria-label="Voltar 10 segundos" title="Voltar 10s" disabled>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        <span class="zx-ctrl-label">10s</span>
+      </button>
+
+      <button type="button" class="zx-ctrl-btn zx-ctrl-btn-primary" id="zx-btn-play-article" aria-label="Ler artigo" title="Ler artigo (contínuo)" aria-pressed="false" disabled>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" data-zx-icon="play"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+        <span class="zx-ctrl-label" id="zx-btn-play-article-label">Ler artigo</span>
+      </button>
+
+      <button type="button" class="zx-ctrl-btn" id="zx-btn-forward" aria-label="Avançar 10 segundos" title="Avançar 10s" disabled>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg>
+        <span class="zx-ctrl-label">10s</span>
+      </button>
+
+      <label class="zx-ctrl-field" id="zx-field-voice">
+        <span class="zx-ctrl-field-label">Voz</span>
+        <select id="zx-select-voice" class="zx-select" aria-label="Voz" disabled>
+          <option value="pt-BR-FranciscaNeural">Francisca</option>
+          <option value="pt-BR-AntonioNeural">Antônio</option>
+        </select>
+      </label>
+
+      <label class="zx-ctrl-field" id="zx-field-speed">
+        <span class="zx-ctrl-field-label">Velocidade</span>
+        <input type="range" id="zx-range-speed" class="zx-range" min="0.7" max="1.6" step="0.1" value="1" aria-label="Velocidade da leitura" disabled />
+        <span class="zx-ctrl-field-value" id="zx-speed-value">1.0x</span>
+      </label>
+    </div>
+
+    <div class="zx-controlbar-row zx-controlbar-appearance" role="group" aria-label="Aparência">
+      <div class="zx-ctrl-group" id="zx-group-theme" role="group" aria-label="Tema">
+        <button type="button" class="zx-chip" data-zx-set-theme="light" aria-pressed="true">Claro</button>
+        <button type="button" class="zx-chip" data-zx-set-theme="sepia" aria-pressed="false">Sépia</button>
+        <button type="button" class="zx-chip" data-zx-set-theme="dark" aria-pressed="false">Escuro</button>
+      </div>
+
+      <div class="zx-ctrl-group" id="zx-group-font" role="group" aria-label="Fonte">
+        <button type="button" class="zx-chip" data-zx-set-font="atkinson" aria-pressed="true">Atkinson</button>
+        <button type="button" class="zx-chip" data-zx-set-font="lexend" aria-pressed="false">Lexend</button>
+        <button type="button" class="zx-chip" data-zx-set-font="opendyslexic" aria-pressed="false">OpenDyslexic</button>
+      </div>
+
+      <div class="zx-ctrl-group" id="zx-group-hl-color" role="group" aria-label="Cor do destaque">
+        <button type="button" class="zx-swatch zx-swatch-yellow" data-zx-set-hl-color="yellow" aria-label="Cor do destaque: amarelo" aria-pressed="true"></button>
+        <button type="button" class="zx-swatch zx-swatch-blue" data-zx-set-hl-color="blue" aria-label="Cor do destaque: azul" aria-pressed="false"></button>
+        <button type="button" class="zx-swatch zx-swatch-pink" data-zx-set-hl-color="pink" aria-label="Cor do destaque: rosa" aria-pressed="false"></button>
+      </div>
+
+      <div class="zx-ctrl-group" id="zx-group-hl-style" role="group" aria-label="Estilo do destaque">
+        <button type="button" class="zx-chip" data-zx-set-hl-style="background" aria-pressed="true">Fundo</button>
+        <button type="button" class="zx-chip" data-zx-set-hl-style="underline" aria-pressed="false">Sublinhado</button>
+      </div>
+
+      <div class="zx-ctrl-group" id="zx-group-size" role="group" aria-label="Tamanho do texto">
+        <button type="button" class="zx-icon-btn zx-ctrl-btn" id="zx-btn-font-dec" aria-label="Diminuir texto" title="A-">A−</button>
+        <span class="zx-ctrl-field-value" id="zx-font-size-value">19px</span>
+        <button type="button" class="zx-icon-btn zx-ctrl-btn" id="zx-btn-font-inc" aria-label="Aumentar texto" title="A+">A+</button>
+      </div>
+
+      <div class="zx-ctrl-group" id="zx-group-width" role="group" aria-label="Largura da coluna">
+        <button type="button" class="zx-chip" data-zx-set-width="55" aria-pressed="false">Estreita</button>
+        <button type="button" class="zx-chip" data-zx-set-width="65" aria-pressed="true">Média</button>
+        <button type="button" class="zx-chip" data-zx-set-width="75" aria-pressed="false">Larga</button>
+      </div>
+
+      <label class="zx-ctrl-toggle" id="zx-field-images">
+        <input type="checkbox" id="zx-toggle-images" checked />
+        <span>Mostrar imagens</span>
+      </label>
+
+      <label class="zx-ctrl-toggle" id="zx-field-focus">
+        <input type="checkbox" id="zx-toggle-focus" />
+        <span>Modo foco</span>
+      </label>
+    </div>
+  </footer>
+
+  <script src="../lib/Readability.js"></script>
+  <script src="../lib/Readability-readerable.js"></script>
+  <script type="module" src="reader.js"></script>
+</body>
+</html>
