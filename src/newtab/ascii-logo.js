@@ -15,21 +15,26 @@
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d', { alpha: true });
+  // The turn is the identity, so it keeps going; reduced motion drops the
+  // parts that are decoration — the scatter on entry and the click ripple —
+  // and halves the speed.
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const config = {
     word: 'ZEOS',
     texture: 'ZEOS#',      // what the lit face is filled with
-    ramp: ['.', '·', ':', '-', '=', '+', '*', '#'],
+    // Textmode shading: dots give way to block elements, the signature
+    // texture of ANSI/PETSCII scene art.
+    ramp: ['·', ':', '░', '░', '▒', '▒', '▓', '█'],
     cellW: 6,
     cellH: 9,
-    depth: 34,             // thickness of the slab, in model units
+    depth: 46,             // thickness of the slab, in model units
     slices: 16,            // extrusion samples between the back and front face
     focal: 1400,
-    yawBase: 0.30,         // kept off-axis so the side face is always visible
-    yawSwing: 0.10,
+    yawBase: 0.35,         // resting angle when motion is reduced
     pitch: 0.16,
-    spinMs: 14000,
+    spinMs: 13000,         // one full turn
+    dwell: 0.46,           // how much the turn lingers on the readable faces
     tilt: 0.30,            // how much the pointer steers the rotation
     shield: 62,            // radius of the pointer shield, in screen pixels
     formMs: 1400
@@ -50,6 +55,7 @@
   let startedAt = 0;
   let raf = 0;
   let foreground = '#f5f5f5';
+  let accent = '#22c55e';
   let fontFamily = 'monospace';
   const pointer = { x: -9999, y: -9999, nx: 0, ny: 0, active: false };
   let ripple = { at: -9999, x: 0, y: 0 };
@@ -57,6 +63,7 @@
   function readTheme() {
     const styles = getComputedStyle(document.documentElement);
     foreground = styles.getPropertyValue('--fg').trim() || foreground;
+    accent = styles.getPropertyValue('--accent').trim() || accent;
     fontFamily = styles.fontFamily || fontFamily;
   }
 
@@ -152,16 +159,22 @@
 
   function step(now) {
     const elapsed = now - startedAt;
-    const form = REDUCED_MOTION ? 1 : Math.min(1, elapsed / config.formMs);
+    const form = Math.min(1, elapsed / config.formMs);
     const eased = 1 - Math.pow(1 - form, 3);
 
     front.fill(0);
     edges.fill(0);
 
-    const t = REDUCED_MOTION ? 0 : (now / config.spinMs) * Math.PI * 2;
-    const yaw = config.yawBase + Math.sin(t) * config.yawSwing +
-      (pointer.active ? pointer.nx * config.tilt : 0);
-    const pitch = Math.sin(t * 0.6) * config.pitch -
+    // A full, continuous turn: the solid rotates rather than rocking, so every
+    // face comes around — front, edge-on, and the back of the letters.
+    const spin = config.spinMs * (REDUCED_MOTION ? 2 : 1);
+    const phase = (now / spin) * Math.PI * 2;
+    // A full turn, but shaped: the solid lingers while it faces the reader and
+    // whips through the profile, where the letters would be edge-on and
+    // unreadable.
+    const t = phase - config.dwell * Math.sin(phase * 2);
+    const yaw = t + (pointer.active ? pointer.nx * config.tilt : 0);
+    const pitch = Math.sin(t * 0.5) * config.pitch -
       (pointer.active ? pointer.ny * config.tilt * 0.5 : 0);
     const cosY = Math.cos(yaw);
     const sinY = Math.sin(yaw);
@@ -222,11 +235,10 @@
 
     // Paint the grid.
     ctx.clearRect(0, 0, width, height);
-    ctx.font = `700 ${config.cellH - 1}px ${fontFamily}`;
+    // Block elements need a face that actually ships them.
+    ctx.font = `700 ${config.cellH - 1}px ${fontFamily}, Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = foreground;
-
     const texture = config.texture;
     const rippleAge = now - ripple.at;
     const rippleRadius = rippleAge < 900 ? (rippleAge / 900) * config.shield * 5 : -1;
@@ -239,10 +251,13 @@
 
         let char;
         let alpha;
+        // Two inks, the way textmode pieces are drawn: the lit face and the
+        // outline carry the foreground, the receding faces the accent.
+        let ink = foreground;
         const edge = edges[index];
         if (edge) {
           char = EDGE_CHARS[edge];
-          alpha = kind === 2 ? 1 : 0.72;
+          alpha = kind === 2 ? 1 : 0.8;
         } else if (kind === 2) {
           // Lit face: the name itself, tiled and offset per row so it reads
           // as a continuous stream rather than stacked columns.
@@ -251,7 +266,8 @@
         } else {
           const level = shade[index];
           char = config.ramp[level];
-          alpha = 0.3 + (level / (config.ramp.length - 1)) * 0.45;
+          alpha = 0.28 + (level / (config.ramp.length - 1)) * 0.44;
+          ink = accent;
         }
 
         const x = col * config.cellW;
@@ -264,6 +280,7 @@
         }
 
         ctx.globalAlpha = alpha * (0.25 + eased * 0.75);
+        ctx.fillStyle = ink;
         ctx.fillText(char, x, y);
       }
     }

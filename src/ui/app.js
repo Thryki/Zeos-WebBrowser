@@ -98,7 +98,7 @@ function setTheme(a = {}) {
   root.setProperty('--panel', a.panel || '#181818');
   root.setProperty('--panel-hover', a.panelHover || '#242424');
   root.setProperty('--border', a.border || '#2a2a2a');
-  root.fontFamily = `"${a.font || 'IBM Plex Mono'}", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace`;
+  root.fontFamily = `"${a.font || 'Brunea Mono'}", "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace`;
 }
 
 function formatBytes(bytes) {

@@ -14,7 +14,7 @@ const TAB_HEIGHT = 38;
 const ADDRESS_HEIGHT = 38;
 const FIND_HEIGHT = 40;
 const DEFAULT_BOUNDS = { width: 1200, height: 760 };
-const FONTS = ['IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New'];
+const FONTS = ['Brunea Mono', 'IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New'];
 
 const DEFAULT_SETTINGS = {
   initialPage: HOME_URL,
@@ -29,7 +29,7 @@ const DEFAULT_SETTINGS = {
     panel: '#181818',
     panelHover: '#242424',
     border: '#2a2a2a',
-    font: 'IBM Plex Mono',
+    font: 'Brunea Mono',
     zoomLevel: 100
   },
   navbarButtons: {
