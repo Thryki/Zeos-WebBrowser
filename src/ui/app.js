@@ -801,15 +801,6 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (key === 'shift' && !event.repeat) {
-    const el = document.activeElement;
-    const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-    if (!isTyping) {
-      event.preventDefault();
-      command('toggle-chrome');
-    }
-  }
-
   if (modKey && key === 'l') {
     event.preventDefault();
     focusAddress();

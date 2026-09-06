@@ -77,7 +77,6 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
 | Ctrl + N | Abrir nova janela |
 | Ctrl + Shift + N | Abrir nova janela privada (anônima) |
 | Ctrl + L | Focar na barra de endereços (Omnibox) |
-| Shift | Alternar exibição da barra de navegação (expandir/recolher) |
 | Ctrl + Tab / Ctrl + Shift + Tab | Alternar para a próxima / anterior aba |
 | Ctrl + 1 até Ctrl + 9 | Selecionar aba pelo número de posição |
 | Ctrl + J | Abrir / fechar painel de downloads |

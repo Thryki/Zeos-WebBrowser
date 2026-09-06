@@ -1660,7 +1660,6 @@ class Browser {
   keyboard(event, input) {
     if (input.type !== 'keyDown' || input.isAutoRepeat) return;
     const key = input.key.toLowerCase(); const ctrl = input.control || input.meta; const tab = this.active();
-    if (key === 'shift') { event.preventDefault(); this.toggleChrome(); return; }
     if (ctrl && key === 'f') { event.preventDefault(); this.chrome.webContents.send('browser:open-find'); return; }
     if (ctrl && key === 'l') { event.preventDefault(); this.setExpanded(true, true); return; }
     if (ctrl && key === 't') { event.preventDefault(); this.createWebTab(); return; }
