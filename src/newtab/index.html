@@ -26,6 +26,7 @@
     font-family: "Brunea Mono", "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
   body {
     background: var(--bg); color: var(--fg); min-height: 100vh;
     display: flex; flex-direction: column; align-items: center;
@@ -34,7 +35,7 @@
 
   /* Wordmark */
   .brand { width: 100%; max-width: 1180px; display: flex; flex-direction: column; align-items: center; }
-  #ascii-logo { width: 100%; height: 300px; display: block; cursor: crosshair; }
+  .brand-logo { width: min(280px, 44vw); height: auto; display: block; margin: 10px 0 22px; opacity: .92; }
 
   /* Greeting */
   .greeting { text-align: center; margin: -18px 0 26px; }
@@ -267,7 +268,7 @@
   <div class="fx-scrim" id="fx-scrim"></div>
 
   <div class="brand">
-    <canvas id="ascii-logo" role="img" aria-label="Zeos"></canvas>
+    <img id="brand-logo" class="brand-logo" src="../assets/zeos-newtab.svg" alt="Zeos" />
   </div>
 
   <div class="greeting">
@@ -503,7 +504,6 @@
     window.zeosFavorites.onChanged(renderFavorites);
   }
 </script>
-<script src="ascii-logo.js"></script>
 <button id="fx-toggle" class="fx-toggle" type="button" hidden
         title="Configurações do efeito 3D" aria-label="Configurações do efeito 3D" aria-expanded="false">
   <span data-icon="settings"></span>
@@ -522,12 +522,15 @@
   const host = document.getElementById('fx-host');
   const scrim = document.getElementById('fx-scrim');
   const toggle = document.getElementById('fx-toggle');
+  const brandLogo = document.getElementById('brand-logo');
   toggle.innerHTML = iconMarkup('settings', 15);
 
   const settings = await window.zeosSettings?.get();
   const enabled = settings?.newTab3D !== false;
   toggle.hidden = !enabled;
   scrim.hidden = !enabled;
+  // With the effect on, the wordmark is the thing rotating behind the page.
+  brandLogo.hidden = enabled;
 
   mount3D({
     host,
