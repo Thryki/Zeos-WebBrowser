@@ -459,6 +459,12 @@ function wireHistorySelectionBar() {
 
 wireHistorySelectionBar();
 
+// zeos://historico lands here with ?panel=historico instead of on Geral.
+const wantedPanel = new URLSearchParams(location.search).get('panel');
+if (wantedPanel && document.querySelector(`.nav-item[data-panel="${CSS.escape(wantedPanel)}"]`)) {
+  showPanel(wantedPanel);
+}
+
 
 function openHistoryClearModal() {
   isConfirmingClear = false;

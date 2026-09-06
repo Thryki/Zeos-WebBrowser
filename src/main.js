@@ -10,6 +10,9 @@ const { THEMES, getTheme } = require('./themes');
 
 const WORKSPACES_FILE = 'workspaces.json';
 
+// Addresses that open the settings page straight on its history panel.
+const HISTORY_TARGETS = new Set(['zeos://historico', 'zeos://history', 'chrome://history', 'about:history']);
+
 const TAB_HEIGHT = 38;
 const ADDRESS_HEIGHT = 38;
 const FIND_HEIGHT = 40;
@@ -1638,7 +1641,10 @@ class Browser {
   sendState() {
     if (this.chrome?.webContents.isDestroyed()) return;
     const active = this.active();
-    const history = active?.view.webContents.navigationHistory;
+    // A tab destroyed mid-load still reaches here through loadURL's catch:
+    // touching its navigation history then throws "Object has been destroyed".
+    const activeContents = active?.view.webContents;
+    const history = !activeContents || activeContents.isDestroyed() ? null : activeContents.navigationHistory;
     const downloadsSummary = getDownloadsSummary();
     const ws = getWorkspace(this.workspaceId);
     this.chrome.webContents.send('browser:state', {
@@ -1970,6 +1976,20 @@ class Browser {
       tab.favicon = '';
       this.ensureViewKind(tab, 'extensions');
       tab.view.webContents.loadFile(path.join(__dirname, 'extensions', 'index.html'));
+      this.sendState();
+      this.saveSessionSoon();
+      return;
+    }
+    // The history panel is worth its own address: the new tab and the menu
+    // both want to land on it, not on Geral.
+    if (HISTORY_TARGETS.has(cleanTarget)) {
+      tab.kind = 'settings';
+      tab.title = 'histórico';
+      tab.url = 'zeos://historico';
+      tab.loading = false;
+      tab.favicon = '';
+      this.ensureViewKind(tab, 'settings');
+      tab.view.webContents.loadFile(path.join(__dirname, 'settings', 'index.html'), { search: 'panel=historico' });
       this.sendState();
       this.saveSessionSoon();
       return;

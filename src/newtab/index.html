@@ -133,11 +133,23 @@
 
   .rows { display: flex; flex-direction: column; gap: 1px; }
   .row-link {
+    display: flex; align-items: center; border-radius: 7px; padding-right: 4px;
+  }
+  .row-link:hover { background: var(--panel); }
+  .row-main {
+    flex: 1; min-width: 0;
     display: flex; align-items: baseline; gap: 11px; padding: 8px 11px;
     border-radius: 7px; cursor: pointer; background: transparent;
     border: 0; color: inherit; font: inherit; text-align: left;
   }
-  .row-link:hover { background: var(--panel); }
+  .row-drop {
+    flex: none; display: grid; place-items: center; width: 24px; height: 24px;
+    border: 0; border-radius: 6px; background: transparent; color: inherit;
+    cursor: pointer; opacity: 0; transition: opacity .12s, color .12s;
+  }
+  .row-link:hover .row-drop { opacity: .45; }
+  .row-drop:hover { opacity: 1; color: #f87171; background: var(--panel-hover, #242424); }
+  .row-drop:focus-visible { opacity: 1; outline: 1px solid var(--accent); }
   .row-link .t { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52%; }
   .row-link .u { flex: 1; min-width: 0; font-size: 11px; opacity: .35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .empty { font-size: 11.5px; opacity: .3; padding: 6px 2px; }
@@ -304,17 +316,34 @@
     histEl.replaceChildren();
     histSection.hidden = !recent.length;
     for (const item of recent) {
-      const row = document.createElement('button');
-      row.type = 'button';
+      const row = document.createElement('div');
       row.className = 'row-link';
+
+      const main = document.createElement('button');
+      main.type = 'button';
+      main.className = 'row-main';
       const t = document.createElement('span');
       t.className = 't';
       t.textContent = item.title || hostOf(item.url);
       const u = document.createElement('span');
       u.className = 'u';
       u.textContent = hostOf(item.url);
-      row.append(t, u);
-      row.addEventListener('click', () => open(item.url, false));
+      main.append(t, u);
+      main.addEventListener('click', () => open(item.url, false));
+
+      // Kept out of the way until the row is hovered or focused.
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'row-drop';
+      drop.title = 'Remover dos recentes';
+      drop.setAttribute('aria-label', `Remover ${item.title || hostOf(item.url)} dos recentes`);
+      drop.innerHTML = iconMarkup('trash-2', 13);
+      drop.addEventListener('click', (event) => {
+        event.stopPropagation();
+        window.zeosSettings?.removeHistoryItem(item.url);
+      });
+
+      row.append(main, drop);
       histEl.appendChild(row);
     }
   }
@@ -344,7 +373,7 @@
     window.zeosFavorites?.navigateSelf('zeos://favoritos');
   });
   document.getElementById('hist-all').addEventListener('click', () => {
-    window.zeosFavorites?.navigateSelf('zeos://settings');
+    window.zeosFavorites?.navigateSelf('zeos://historico');
   });
 
   greet();
