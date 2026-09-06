@@ -103,77 +103,122 @@ async function loadExtensionsList() {
     const exts = await window.zeosSettings.extensions.getAll();
     if (!exts || exts.length === 0) {
       if (extensionsEmpty) extensionsEmpty.style.display = 'block';
+      extensionsList.style.display = 'none';
       return;
     }
 
     if (extensionsEmpty) extensionsEmpty.style.display = 'none';
+    extensionsList.style.display = '';
 
     for (const ext of exts) {
-      const card = document.createElement('div');
-      card.className = 'extension-card';
-
-      const header = document.createElement('div');
-      header.className = 'extension-header';
-
-      const titleArea = document.createElement('div');
-      titleArea.className = 'extension-title-area';
+      const row = document.createElement('div');
+      row.className = 'row';
 
       const icon = document.createElement('div');
-      icon.className = 'extension-icon';
+      icon.className = 'row-icon';
       if (ext.icon) {
         const img = document.createElement('img');
         img.src = ext.icon;
-        img.alt = ext.name;
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'contain';
+        img.alt = '';
         icon.appendChild(img);
       } else {
         icon.textContent = (ext.name || 'E')[0].toUpperCase();
       }
 
-      const name = document.createElement('div');
-      name.className = 'extension-name';
+      const text = document.createElement('div');
+      text.className = 'row-text';
+
+      const name = document.createElement('strong');
       name.textContent = ext.name || 'Extensão';
+      if (ext.builtin) {
+        const badge = document.createElement('span');
+        badge.className = 'row-badge';
+        badge.textContent = 'Integrada';
+        badge.title = 'Vem com o Zeos e não pode ser removida.';
+        name.appendChild(badge);
+      }
 
-      titleArea.append(icon, name);
+      const desc = document.createElement('span');
+      desc.textContent = `v${ext.version || '1.0'} · ${ext.description || 'Extensão do Chrome ativa no navegador.'}`;
 
-      const ver = document.createElement('span');
-      ver.className = 'extension-version';
-      ver.textContent = `v${ext.version || '1.0'}`;
+      text.append(name, desc);
 
-      header.append(titleArea, ver);
+      const lead = document.createElement('div');
+      lead.className = 'row-lead';
+      lead.append(icon, text);
 
-      const desc = document.createElement('div');
-      desc.className = 'extension-desc';
-      desc.textContent = ext.description || 'Extensão do Chrome ativa no navegador.';
+      const control = document.createElement('div');
+      control.className = 'row-control';
+      if (!ext.builtin) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'action-btn danger-outline';
+        removeBtn.textContent = 'Remover';
+        removeBtn.addEventListener('click', async () => {
+          if (confirm(`Deseja realmente remover a extensão "${ext.name}"?`)) {
+            await window.zeosSettings.extensions.remove(ext.id);
+            loadExtensionsList();
+          }
+        });
+        control.appendChild(removeBtn);
+      }
 
-      const footer = document.createElement('div');
-      footer.className = 'extension-footer';
-
-      const idSpan = document.createElement('span');
-      idSpan.className = 'extension-id';
-      idSpan.title = `ID: ${ext.id}`;
-      idSpan.textContent = `ID: ${ext.id}`;
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'extension-remove-btn';
-      removeBtn.textContent = 'Remover';
-      removeBtn.addEventListener('click', async () => {
-        if (confirm(`Deseja realmente remover a extensão "${ext.name}"?`)) {
-          await window.zeosSettings.extensions.remove(ext.id);
-          loadExtensionsList();
-        }
-      });
-
-      footer.append(idSpan, removeBtn);
-      card.append(header, desc, footer);
-      extensionsList.appendChild(card);
+      row.append(lead, control);
+      extensionsList.appendChild(row);
     }
   } catch (err) {
     console.error(err);
   }
 }
+
+// Sidebar navigation and settings search
+const settingsNav = document.querySelector('#settings-nav');
+const settingsSearch = document.querySelector('#settings-search');
+const searchEmpty = document.querySelector('#search-empty');
+
+function showPanel(name) {
+  for (const panel of document.querySelectorAll('.panel')) {
+    panel.classList.toggle('active', panel.dataset.panel === name);
+  }
+  for (const item of document.querySelectorAll('.nav-item')) {
+    item.classList.toggle('active', item.dataset.panel === name);
+  }
+  window.scrollTo(0, 0);
+}
+
+if (settingsNav) {
+  settingsNav.addEventListener('click', (event) => {
+    const item = event.target.closest('.nav-item');
+    if (!item) return;
+    if (settingsSearch) settingsSearch.value = '';
+    applySettingsSearch();
+    showPanel(item.dataset.panel);
+  });
+}
+
+// Typing in the search box flattens every panel into one filtered list.
+// Accent-insensitive: searching "camera" must find "Câmera".
+const foldText = (value) => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+function applySettingsSearch() {
+  const query = foldText(settingsSearch?.value).trim();
+  document.body.classList.toggle('searching', Boolean(query));
+
+  if (!query) {
+    for (const row of document.querySelectorAll('.panel .row')) row.hidden = false;
+    if (searchEmpty) searchEmpty.hidden = true;
+    return;
+  }
+
+  let matches = 0;
+  for (const row of document.querySelectorAll('.panel .row')) {
+    const hit = foldText(row.textContent).includes(query);
+    row.hidden = !hit;
+    if (hit) matches += 1;
+  }
+  if (searchEmpty) searchEmpty.hidden = matches > 0;
+}
+
+if (settingsSearch) settingsSearch.addEventListener('input', applySettingsSearch);
 
 function filterHistoryItems(history) {
   const now = Date.now();
