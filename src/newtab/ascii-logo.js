@@ -24,8 +24,11 @@
     word: 'ZEOS',
     texture: 'ZEOS#',      // what the lit face is filled with
     shadeLevels: 8,        // depth buckets feeding the ordered dither
-    cellW: 6,
-    cellH: 9,
+    // The bitmap face is designed at 8x16; drawing it at any other size
+    // blurs it, so the grid matches the glyph exactly.
+    cellW: 8,
+    cellH: 16,
+    targetRows: 17,        // glyph height, in character rows
     depth: 74,             // thickness of the slab, in model units
     slices: 16,            // extrusion samples between the back and front face
     focal: 1400,
@@ -56,20 +59,24 @@
   let startedAt = 0;
   let raf = 0;
   let foreground = '#f5f5f5';
-  let fontFamily = 'monospace';
+  // The wordmark is drawn in a real bitmap terminal face, not the UI font:
+  // that squared, 1993-CRT weight is the whole point of the look.
+  const GLYPH_FONT = '"IBM VGA 8x16", "Cascadia Mono", Consolas, monospace';
   const pointer = { x: -9999, y: -9999, nx: 0, ny: 0, active: false };
   let ripple = { at: -9999, x: 0, y: 0 };
 
   function readTheme() {
     const styles = getComputedStyle(document.documentElement);
     foreground = styles.getPropertyValue('--fg').trim() || foreground;
-    fontFamily = styles.fontFamily || fontFamily;
   }
 
   // Draws the word once with a heavy face and keeps the covered points; these
   // are the silhouette that gets extruded.
   function buildMask() {
-    const fontSize = Math.max(96, Math.min(260, width / 3.6));
+    // Sized so the letters occupy targetRows rows, but never wider than the
+    // canvas.
+    const wanted = (config.targetRows * config.cellH) / 0.72;
+    const fontSize = Math.max(96, Math.min(wanted, width / 2.9));
     const probe = document.createElement('canvas');
     const pctx = probe.getContext('2d', { willReadFrequently: true });
     probe.width = Math.max(1, Math.floor(width));
@@ -236,7 +243,7 @@
     ctx.clearRect(0, 0, width, height);
     // Monochrome, like the reference: one ink on black.
     ctx.fillStyle = foreground;
-    ctx.font = `700 ${config.cellH - 1}px ${fontFamily}, Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace`;
+    ctx.font = `${config.cellH}px ${GLYPH_FONT}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     const texture = config.texture;
@@ -317,7 +324,20 @@
     attributeFilter: ['style']
   });
 
-  readTheme();
-  resize();
-  raf = requestAnimationFrame(step);
+  function start() {
+    readTheme();
+    resize();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(step);
+  }
+
+  // Without waiting for the bitmap face the first frames would be measured
+  // and drawn in the fallback, which has different metrics.
+  if (document.fonts && document.fonts.load) {
+    const ready = document.fonts.load(`${config.cellH}px "IBM VGA 8x16"`);
+    const timeout = new Promise((resolve) => setTimeout(resolve, 1200));
+    Promise.race([ready, timeout]).then(start, start);
+  } else {
+    start();
+  }
 })();

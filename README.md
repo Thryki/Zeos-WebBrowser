@@ -208,6 +208,23 @@ Contribuições são muito bem-vindas! Se você deseja contribuir:
 
 ---
 
+## 📜 Créditos de terceiros
+
+O código do Zeos é MIT. Os recursos abaixo vêm de terceiros e mantêm suas
+próprias licenças:
+
+| Recurso | Origem | Licença |
+| :--- | :--- | :--- |
+| Ícones da interface | [Lucide](https://lucide.dev) v1.41.0 | ISC |
+| Fonte do logo ASCII | [IBM VGA 8x16](https://int10h.org/oldschool-pc-fonts/), do Ultimate Oldschool PC Font Pack de VileR | CC BY-SA 4.0 |
+| Extensão Dislexfy | Integrada em `src/bundled-extensions/dislexfy` | do autor do projeto |
+
+Textos de licença e instruções em [src/assets/fonts/](src/assets/fonts/) e
+[src/icons.js](src/icons.js). A interface não usa emoji: ícones novos devem
+vir do Lucide, colando o SVG do upstream em `src/icons.js`.
+
+---
+
 ## 📄 Licença
 
 Este projeto está sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter mais informações.
