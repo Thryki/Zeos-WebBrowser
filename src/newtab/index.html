@@ -90,7 +90,7 @@
     font-size: 9.5px; letter-spacing: .04em; opacity: .4;
     border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px;
   }
-  .chip-add { padding: 6px 8px; }
+  .chip-add { padding: 6px 8px; margin-left: auto; }
   .pins { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .pin {
     position: relative; display: inline-flex; align-items: center; gap: 7px;
@@ -101,7 +101,9 @@
   .pin .mark {
     display: grid; place-items: center; width: 16px; height: 16px; flex: none;
     border-radius: 4px; background: #101010; font-size: 9px; opacity: .8;
+    overflow: hidden;
   }
+  .pin .mark img { width: 13px; height: 13px; object-fit: contain; }
   .pin-drop {
     display: grid; place-items: center; width: 15px; height: 15px; margin-left: 1px;
     border: 0; border-radius: 4px; background: transparent; color: inherit;
@@ -138,22 +140,30 @@
   .pin-option[aria-pressed="true"] { color: var(--accent); }
   .pin-option .mark {
     display: grid; place-items: center; width: 22px; height: 22px; flex: none;
-    border-radius: 6px; background: var(--panel); font-size: 10px;
+    border-radius: 6px; background: var(--panel); font-size: 10px; overflow: hidden;
   }
+  .pin-option .mark img { width: 16px; height: 16px; object-fit: contain; }
   .pin-option .host { margin-left: auto; font-size: 10.5px; opacity: .35; }
+  /* Row wrapper so the delete button is a sibling of the option button:
+     a button inside a button is not valid markup. */
+  .pin-row { display: flex; align-items: center; border-radius: 8px; }
+  .pin-row:hover { background: var(--panel); }
+  .pin-row .pin-option { flex: 1; min-width: 0; }
+  .pin-row .pin-option:hover { background: transparent; }
+  .pin-row-drop {
+    flex: none; display: grid; place-items: center; width: 26px; height: 26px;
+    margin-right: 6px; border: 0; border-radius: 6px; background: transparent;
+    color: inherit; cursor: pointer; opacity: 0; transition: opacity .12s, color .12s;
+  }
+  .pin-row:hover .pin-row-drop { opacity: .45; }
+  .pin-row-drop:hover { opacity: 1; color: #f87171; }
+  .pin-row-drop:focus-visible { opacity: 1; outline: 1px solid var(--accent); }
   .pin-custom { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
   .pin-custom input {
     flex: 1; min-width: 0; font: inherit; font-size: 12px; color: var(--fg);
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; outline: 0;
   }
   .pin-custom input:focus { border-color: var(--accent); }
-  .go {
-    margin-left: auto; width: 34px; height: 30px; display: grid; place-items: center;
-    border-radius: 7px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-    background: color-mix(in srgb, var(--accent) 18%, var(--bg)); color: var(--accent); cursor: pointer;
-  }
-  .go:hover { background: color-mix(in srgb, var(--accent) 30%, var(--bg)); }
-
   /* Sections */
   section { width: 100%; max-width: 940px; margin-top: 40px; }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
@@ -375,7 +385,6 @@
       <button class="chip chip-add" type="button" id="pin-add" title="Fixar um site" aria-label="Fixar um site">
         <span class="icon" data-icon="plus"></span>
       </button>
-      <button class="go" type="submit" title="Ir" aria-label="Ir"><span data-icon="arrow-right"></span></button>
     </div>
   </form>
 
@@ -386,6 +395,11 @@
         <span class="icon" data-icon="terminal"></span>
         <span class="action-label">novo terminal</span>
         <span class="keys">Ctrl+Shift+K</span>
+      </button>
+      <button class="action" type="button" id="act-downloads">
+        <span class="icon" data-icon="download"></span>
+        <span class="action-label">downloads</span>
+        <span class="keys">Ctrl+J</span>
       </button>
       <button class="action" type="button" id="act-settings">
         <span class="icon" data-icon="settings"></span>
@@ -461,27 +475,60 @@
     favCountEl.textContent = items.length === 1 ? '1 favorito' : `${items.length} favoritos`;
   }
 
-  // Sites offered by the pin picker. Kept short and well known: the point is
-  // one click to the handful of places a new tab usually goes.
-  const SUGGESTED = [
+  // What the picker starts with on a fresh profile: the tools this browser is
+  // actually used for. The list is editable from then on and lives in settings.
+  const SEED_PIN_LIST = [
     { title: 'ChatGPT', url: 'https://chatgpt.com' },
     { title: 'Claude', url: 'https://claude.ai' },
     { title: 'Gemini', url: 'https://gemini.google.com' },
     { title: 'Perplexity', url: 'https://perplexity.ai' },
     { title: 'GitHub', url: 'https://github.com' },
-    { title: 'YouTube', url: 'https://youtube.com' },
-    { title: 'Gmail', url: 'https://mail.google.com' },
-    { title: 'Wikipédia', url: 'https://pt.wikipedia.org' },
-    { title: 'Reddit', url: 'https://reddit.com' },
-    { title: 'Notion', url: 'https://notion.so' },
-    { title: 'Figma', url: 'https://figma.com' },
+    { title: 'GitLab', url: 'https://gitlab.com' },
+    { title: 'Stack Overflow', url: 'https://stackoverflow.com' },
+    { title: 'MDN Web Docs', url: 'https://developer.mozilla.org' },
+    { title: 'npm', url: 'https://npmjs.com' },
+    { title: 'Node.js', url: 'https://nodejs.org' },
+    { title: 'Vercel', url: 'https://vercel.com' },
     { title: 'Dislexfy', url: 'https://dislexfy.com' },
   ];
+  const PIN_LIST_LIMIT = 12;
 
   let pins = [];
+  let pinList = [];
 
   function savePins() {
-    window.zeosSettings?.update({ newTabPins: pins });
+    window.zeosSettings?.update({ newTabPins: pins, newTabPinList: pinList });
+  }
+
+  // An icon or, failing that, the initial. A stored icon that no longer decodes
+  // falls back to the same letter rather than leaving an empty square.
+  function markFor(entry, className) {
+    const mark = document.createElement("span");
+    mark.className = className;
+    const letter = ((entry.title || "")[0] || hostOf(entry.url)[0] || "?").toUpperCase();
+    if (entry.icon) {
+      const img = document.createElement("img");
+      img.src = entry.icon;
+      img.alt = "";
+      img.addEventListener("error", () => { mark.textContent = letter; });
+      mark.appendChild(img);
+    } else {
+      mark.textContent = letter;
+    }
+    return mark;
+  }
+
+  // The site's own favicon, read once. Everything after this is served from
+  // the stored data URL, so opening a new tab never reaches the network.
+  async function ensureIcon(entry) {
+    if (entry.icon || !window.zeosSettings?.fetchIcon) return entry;
+    try {
+      const icon = await window.zeosSettings.fetchIcon(entry.url);
+      if (icon) entry.icon = icon;
+    } catch {
+      // No icon is not an error: the letter mark stands in.
+    }
+    return entry;
   }
 
   function renderPins() {
@@ -492,9 +539,7 @@
       chip.className = 'pin';
       chip.title = pin.url;
 
-      const mark = document.createElement('span');
-      mark.className = 'mark';
-      mark.textContent = (pin.title[0] || hostOf(pin.url)[0] || '?').toUpperCase();
+      const mark = markFor(pin, 'mark');
 
       const label = document.createElement('span');
       label.textContent = pin.title;
@@ -523,28 +568,60 @@
   }
 
   const pinModal = document.getElementById('pin-modal');
-  const pinList = document.getElementById('pin-list');
+  const pinListEl = document.getElementById('pin-list');
 
-  function togglePin(entry) {
-    if (pins.some((pin) => pin.url === entry.url)) pins = pins.filter((pin) => pin.url !== entry.url);
-    else pins = [...pins, entry];
+  async function togglePin(entry) {
+    if (pins.some((pin) => pin.url === entry.url)) {
+      pins = pins.filter((pin) => pin.url !== entry.url);
+    } else {
+      await ensureIcon(entry);
+      pins = [...pins, { ...entry }];
+    }
     renderPins();
-    savePins();
     renderPinList();
+    savePins();
+  }
+
+  // Removing from the picker drops the site entirely, chip included: leaving a
+  // pinned chip whose entry is gone from the list has no way back.
+  function forgetEntry(entry) {
+    pinList = pinList.filter((item) => item.url !== entry.url);
+    pins = pins.filter((pin) => pin.url !== entry.url);
+    renderPins();
+    renderPinList();
+    savePins();
+  }
+
+  // Newest goes last. When the list is full the oldest entry that is NOT
+  // pinned falls off first, so filling the list can never strand a pinned chip
+  // with no row to unpin it from. If every entry is pinned, the oldest goes and
+  // is unpinned with it.
+  async function rememberEntry(entry) {
+    if (!pinList.some((item) => item.url === entry.url)) {
+      await ensureIcon(entry);
+      let next = [...pinList, entry];
+      while (next.length > PIN_LIST_LIMIT) {
+        const victim = next.find((item) => !pins.some((pin) => pin.url === item.url)) || next[0];
+        pins = pins.filter((pin) => pin.url !== victim.url);
+        next = next.filter((item) => item !== victim);
+      }
+      pinList = next;
+    }
+    await togglePin(entry);
   }
 
   function renderPinList() {
-    pinList.replaceChildren();
-    for (const entry of SUGGESTED) {
+    pinListEl.replaceChildren();
+    for (const entry of pinList) {
       const pinned = pins.some((pin) => pin.url === entry.url);
+
+      const row = document.createElement('div');
+      row.className = 'pin-row';
+
       const option = document.createElement('button');
       option.type = 'button';
       option.className = 'pin-option';
       option.setAttribute('aria-pressed', String(pinned));
-
-      const mark = document.createElement('span');
-      mark.className = 'mark';
-      mark.textContent = entry.title[0].toUpperCase();
 
       const label = document.createElement('span');
       label.textContent = entry.title;
@@ -553,9 +630,22 @@
       host.className = 'host';
       host.textContent = pinned ? 'fixado' : hostOf(entry.url);
 
-      option.append(mark, label, host);
+      option.append(markFor(entry, 'mark'), label, host);
       option.addEventListener('click', () => togglePin(entry));
-      pinList.appendChild(option);
+
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'pin-row-drop';
+      drop.title = 'Remover da lista';
+      drop.setAttribute('aria-label', 'Remover ' + entry.title + ' da lista');
+      drop.innerHTML = iconMarkup('trash-2', 12);
+      drop.addEventListener('click', (event) => {
+        event.stopPropagation();
+        forgetEntry(entry);
+      });
+
+      row.append(option, drop);
+      pinListEl.appendChild(row);
     }
   }
 
@@ -581,8 +671,10 @@
     if (!raw) return;
     const lower = raw.toLowerCase();
     const url = lower.startsWith('http://') || lower.startsWith('https://') ? raw : `https://${raw}`;
-    togglePin({ title: hostOf(url), url });
-    openPinModal(false);
+    // A pasted address joins the picker as well as the row, so it can be
+    // unpinned and re-pinned later instead of being a one-shot.
+    rememberEntry({ title: hostOf(url), url });
+    document.getElementById('pin-url').value = '';
   });
 
   function renderHistory(history) {
@@ -642,7 +734,10 @@
   });
 
   document.getElementById('act-terminal').addEventListener('click', () => {
-    window.zeosFavorites?.navigateSelf('zeos://terminal');
+    window.zeosSettings?.openTerminal();
+  });
+  document.getElementById('act-downloads').addEventListener('click', () => {
+    window.zeosSettings?.openDownloadsPanel();
   });
   document.getElementById('act-settings').addEventListener('click', () => {
     window.zeosFavorites?.navigateSelf('zeos://settings');
@@ -663,6 +758,8 @@
       if (settings.searchProvider) providerEl.value = settings.searchProvider;
       renderHistory(Array.isArray(settings.history) ? settings.history : []);
       pins = Array.isArray(settings.newTabPins) ? settings.newTabPins : [];
+      const stored = Array.isArray(settings.newTabPinList) ? settings.newTabPinList : [];
+      pinList = stored.length ? stored : SEED_PIN_LIST.map((entry) => ({ ...entry }));
       renderPins();
     };
     window.zeosSettings.get().then(load);

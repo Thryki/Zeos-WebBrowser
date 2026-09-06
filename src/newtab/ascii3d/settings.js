@@ -44,15 +44,30 @@ export const TOOL_DEFAULTS = {
   isDark: false,
 };
 
-// What a fresh Zeos new tab opens with: the same shape, dressed in the browser's
-// own palette so the wordmark sits on the page instead of glaring off it.
+// What a fresh Zeos new tab opens with: the lab's "Neon Cityscape" preset, with
+// two departures. Its font is Roboto Mono, which this browser does not fetch
+// from Google; IBM VGA carries the block glyphs the preset draws with anyway.
+// And the scene ground is pinned to the palette's own darkest stop so the
+// backdrop and the page agree.
 export const ZEOS_DEFAULTS = deepMerge(TOOL_DEFAULTS, {
-  ascii: { characters: ' .:-=+*#%@', resolution: 5, color: '#22c55e' },
-  target: { background: { solidColor: '#0b0b0b' } },
+  effectType: 'ascii',
+  brightness: 0.12,
+  contrast: 1.65,
+  ascii: {
+    font: '"IBM VGA 8x16"',
+    characters: ' ░▒▓█▌▐▀▄■□▬▭▮▯◘◙',
+    resolution: 7,
+    scale: 1,
+    color: '#00ff80',
+    colorTrio: ['#003322', '#00ff80', '#66ffaa'],
+    useColorTrio: true,
+  },
+  target: { background: { solidColor: '#001122' } },
   colors: {
-    background: '#0b0b0b',
-    palette: ['#0b0b0b', '#123322', '#1d7a45', '#22c55e', '#9ff5bd'],
-    active: [true, true, true, true, true],
+    usePalette: true,
+    background: '#001122',
+    palette: ['#001122', '#00ff80', '#ff0060', '#0080ff', '#ffff00', '#ff8000'],
+    active: [true, true, true, true, true, true],
   },
   isDark: true,
 });

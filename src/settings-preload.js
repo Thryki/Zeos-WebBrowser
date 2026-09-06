@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('zeosSettings', {
   removeHistoryItems: (urls) => ipcRenderer.invoke('settings:remove-history-items', urls),
   openUrl: (url) => ipcRenderer.invoke('settings:open-url', url),
   clearCookies: () => ipcRenderer.invoke('settings:clear-cookies'),
+  fetchIcon: (url) => ipcRenderer.invoke('settings:fetch-icon', url),
+  openTerminal: () => ipcRenderer.invoke('shell:open-terminal'),
+  openDownloadsPanel: () => ipcRenderer.invoke('shell:open-downloads-panel'),
   extensions: {
     getAll: () => ipcRenderer.invoke('extensions:get-all'),
     loadUnpacked: () => ipcRenderer.invoke('extensions:load-unpacked'),

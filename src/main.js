@@ -1,10 +1,11 @@
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, Menu, MenuItem, ipcMain, session, shell, dialog } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, MenuItem, ipcMain, session, shell, dialog, net } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const os = require('node:os');
+const { spawn } = require('node:child_process');
 const { HOME_URL, SEARCH_PROVIDERS, toNavigationTarget } = require('./navigation');
 const { THEMES, getTheme } = require('./themes');
 
@@ -15,6 +16,26 @@ const WORKSPACES_FILE = 'workspaces.json';
 function isHttpUrl(value) {
   const lower = String(value).toLowerCase();
   return lower.startsWith('http://') || lower.startsWith('https://');
+}
+
+// The pinned shortcuts and the picker list share one shape. The icon is stored
+// inline as a data URL on purpose: a remote URL would be re-fetched on every
+// new tab, which is exactly the per-visit leak this browser avoids elsewhere.
+const PIN_LIST_LIMIT = 12;
+
+function sanitizePinList(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((pin) => pin && typeof pin.url === 'string' && typeof pin.title === 'string')
+    .filter((pin) => isHttpUrl(pin.url) && pin.url.length <= 2048)
+    .slice(0, PIN_LIST_LIMIT)
+    .map((pin) => ({
+      title: pin.title.slice(0, 60),
+      url: pin.url,
+      icon: typeof pin.icon === 'string' && pin.icon.startsWith('data:image/') && pin.icon.length <= 96 * 1024
+        ? pin.icon
+        : '',
+    }));
 }
 
 // Addresses that open the settings page straight on its history panel.
@@ -34,6 +55,7 @@ const DEFAULT_SETTINGS = {
   newTab3D: true,
   newTabEffect: null,
   newTabPins: [],
+  newTabPinList: [],
   appearance: {
     themeId: 'orca',
     background: '#0b0b0b',
@@ -150,6 +172,8 @@ function loadSettings() {
     permissions: { ...DEFAULT_SETTINGS.permissions, ...(stored.permissions || {}) },
     siteZoom: (stored.siteZoom && typeof stored.siteZoom === 'object' && !Array.isArray(stored.siteZoom)) ? stored.siteZoom : {},
     extensions: Array.isArray(stored.extensions) ? stored.extensions : [],
+    newTabPins: sanitizePinList(stored.newTabPins),
+    newTabPinList: sanitizePinList(stored.newTabPinList),
     history: Array.isArray(stored.history) ? stored.history.slice(0, 2000) : []
   };
   loadWorkspaces();
@@ -227,13 +251,8 @@ function updateSettings(patch) {
   if (!patch || typeof patch !== 'object') return { ...copy(settings), themes: THEMES };
   if (SEARCH_PROVIDERS[patch.searchProvider]) settings.searchProvider = patch.searchProvider;
   if (typeof patch.newTab3D === 'boolean') settings.newTab3D = patch.newTab3D;
-  if (Array.isArray(patch.newTabPins)) {
-    settings.newTabPins = patch.newTabPins
-      .filter((pin) => pin && typeof pin.url === 'string' && typeof pin.title === 'string')
-      .filter((pin) => isHttpUrl(pin.url) && pin.url.length <= 2048)
-      .slice(0, 12)
-      .map((pin) => ({ title: pin.title.slice(0, 60), url: pin.url }));
-  }
+  if (Array.isArray(patch.newTabPins)) settings.newTabPins = sanitizePinList(patch.newTabPins);
+  if (Array.isArray(patch.newTabPinList)) settings.newTabPinList = sanitizePinList(patch.newTabPinList);
   // The new tab's 3D panel round-trips its own effect state. It is renderer
   // data with no meaning here, so it is size-capped and re-parsed rather than
   // trusted as an object.
@@ -2827,6 +2846,143 @@ ipcMain.handle('settings:open-url', (_event, url) => {
   return false;
 });
 ipcMain.handle('settings:clear-cookies', async () => { await session.defaultSession.clearStorageData({ storages: ['cookies'] }); return true; });
+
+// Until Zeos has a terminal of its own, the new tab hands off to the system's.
+// The candidate list is fixed here and takes no argument from the renderer, so
+// nothing a page can say ever reaches spawn.
+const TERMINALS = {
+  win32: [['wt.exe', []], ['powershell.exe', []], ['cmd.exe', []]],
+  darwin: [['open', ['-a', 'Terminal']]],
+  linux: [['x-terminal-emulator', []], ['gnome-terminal', []], ['konsole', []], ['xfce4-terminal', []], ['xterm', []]],
+};
+
+function openSystemTerminal(index = 0) {
+  const candidates = TERMINALS[process.platform] || TERMINALS.linux;
+  if (index >= candidates.length) return false;
+  const [command, args] = candidates[index];
+  const home = app.getPath('home');
+  try {
+    const child = spawn(command, process.platform === 'darwin' ? [...args, home] : args, {
+      cwd: home, detached: true, stdio: 'ignore',
+    });
+    // spawn reports a missing binary asynchronously, so the fallback chain has
+    // to hang off the error event rather than a try/catch.
+    child.once('error', () => openSystemTerminal(index + 1));
+    child.unref();
+    return true;
+  } catch {
+    return openSystemTerminal(index + 1);
+  }
+}
+
+// Reads a site's own icon, once, at the moment the user pins it. Never a
+// third-party icon service: the README promises no visited hostname is handed
+// to anyone, and this request goes to the site the user just chose.
+//
+// /favicon.ico answers for most sites; the rest declare the icon in markup
+// instead, so the page is read and its <link rel="icon"> followed. Measured
+// over the seed list, that is the difference between 7 and 11 of 12 sites.
+const MAX_ICON_BYTES = 48 * 1024;
+const MAX_ICON_HTML_BYTES = 128 * 1024;
+
+async function withAbort(run, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await run(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Sites like npmjs.com answer 403 to anything that does not look like a
+// browser, and this request is made on the user's behalf from a browser.
+async function fetchIconBytes(url) {
+  try {
+    return await withAbort(async (signal) => {
+      const response = await net.fetch(url, {
+        signal,
+        credentials: 'omit',
+        headers: {
+          'User-Agent': app.userAgentFallback,
+          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        },
+      });
+      if (!response.ok) return '';
+      const type = (response.headers.get('content-type') || '').split(';')[0].trim();
+      if (!type.startsWith('image/')) return '';
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > MAX_ICON_BYTES) return '';
+      return 'data:' + type + ';base64,' + bytes.toString('base64');
+    }, 5000);
+  } catch {
+    return '';
+  }
+}
+
+function iconHrefFrom(html) {
+  const links = html.match(/<link\b[^>]*>/gi) || [];
+  for (const tag of links) {
+    const rel = (tag.match(/\brel\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
+    if (!/\bicon\b/i.test(rel)) continue;
+    const href = (tag.match(/\bhref\s*=\s*["']([^"']+)["']/i) || [])[1];
+    if (href) return href;
+  }
+  return '';
+}
+
+async function fetchDeclaredIcon(pageUrl) {
+  let html;
+  try {
+    html = await withAbort(async (signal) => {
+      const response = await net.fetch(pageUrl, {
+        signal,
+        credentials: 'omit',
+        headers: { 'User-Agent': app.userAgentFallback, Accept: 'text/html,*/*;q=0.8' },
+      });
+      if (!response.ok) return '';
+      return (await response.text()).slice(0, MAX_ICON_HTML_BYTES);
+    }, 6000);
+  } catch {
+    return '';
+  }
+  if (!html) return '';
+  const href = iconHrefFrom(html);
+  if (!href) return '';
+  try {
+    const resolved = new URL(href, pageUrl);
+    if (!isHttpUrl(resolved.href)) return '';
+    return await fetchIconBytes(resolved.href);
+  } catch {
+    return '';
+  }
+}
+
+ipcMain.handle('settings:fetch-icon', async (_event, rawUrl) => {
+  if (typeof rawUrl !== 'string' || !isHttpUrl(rawUrl)) return '';
+  let origin;
+  try { origin = new URL(rawUrl).origin; } catch { return ''; }
+
+  // A site already favourited has an icon on hand; no need to ask again.
+  for (const item of favorites) {
+    try {
+      if (new URL(item.url).origin === origin && item.favicon && item.favicon.startsWith('data:image/')) {
+        return item.favicon;
+      }
+    } catch { /* a malformed stored favourite is simply skipped */ }
+  }
+
+  return (await fetchIconBytes(origin + '/favicon.ico')) || (await fetchDeclaredIcon(rawUrl));
+});
+
+ipcMain.handle('shell:open-terminal', () => openSystemTerminal());
+
+ipcMain.handle('shell:open-downloads-panel', (event) => {
+  const browser = pageOwners.get(event.sender.id) || browsers.values().next().value;
+  if (!browser || browser.chrome.webContents.isDestroyed()) return false;
+  browser.chrome.webContents.send('browser:toggle-downloads');
+  return true;
+});
 
 // Workspaces IPC
 ipcMain.handle('workspaces:list', () => Array.from(workspaces.values()).map((ws) => {
