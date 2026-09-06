@@ -1172,11 +1172,24 @@ async function askExtension(extensionId, message) {
   }
 }
 
+// The bundled reader draws its own selection entry natively, below, so it is
+// filtered out of the extension list to avoid showing twice.
+const NATIVE_READER_MENU_ID = 'zyrex-read-selection';
+
+function bundledReader() {
+  return getInstalledExtensions().find((ext) => (
+    ext.builtin && ext.enabled && /dislexfy/i.test(ext.name || '')
+  )) || null;
+}
+
 async function refreshExtensionContextMenus(extensionId) {
   const reply = await askExtension(extensionId, { __zeos_get_context_menus: true });
   const menus = Array.isArray(reply?.menus) ? reply.menus : [];
+  // An MV3 service worker that has been shut down answers with nothing, and
+  // its registry only refills from onInstalled, which does not fire again on
+  // wake. Dropping the cache on an empty reply is how entries vanished after
+  // the worker went idle, so the last known set is kept instead.
   if (menus.length) extensionContextMenus.set(extensionId, menus);
-  else extensionContextMenus.delete(extensionId);
   return menus;
 }
 
@@ -1185,6 +1198,7 @@ async function refreshExtensionContextMenus(extensionId) {
 // name; Zeos mirrors that.
 function buildExtensionMenuItems(browser, contents, tab, params) {
   const active = contextsForParams(params);
+  const readerId = bundledReader()?.id || null;
   const items = [];
   for (const ext of getInstalledExtensions()) {
     if (!ext.enabled) continue;
@@ -1193,6 +1207,7 @@ function buildExtensionMenuItems(browser, contents, tab, params) {
       entry.visible !== false &&
       entry.title &&
       !entry.parentId &&
+      !(ext.id === readerId && entry.id === NATIVE_READER_MENU_ID) &&
       entry.contexts.some((context) => active.includes(context))
     ));
     if (!matching.length) continue;
@@ -1952,6 +1967,24 @@ class Browser {
           label: `Pesquisar por "${label}"`,
           click: () => owner.createWebTab(toNavigationTarget(selection, settings.searchProvider).url, true)
         }));
+        // Reading a selection aloud is the bundled extension's headline
+        // feature, so it is dispatched directly rather than through the menu
+        // cache, which cannot survive its service worker being shut down.
+        const reader = bundledReader();
+        if (reader) {
+          menu.append(new MenuItem({
+            label: 'Ler com Dislexfy',
+            click: () => {
+              triggerExtensionContextMenu(reader.id, extensionMenuInfo(params, NATIVE_READER_MENU_ID), {
+                id: contents.isDestroyed() ? -1 : contents.id,
+                windowId: owner.window.id,
+                url: tab.url || '',
+                title: tab.title || '',
+                active: true,
+              }).then((reply) => { if (!reply) console.error('Dislexfy read-selection dispatch failed'); });
+            }
+          }));
+        }
         menu.append(new MenuItem({ type: 'separator' }));
       }
       if (params.editFlags.canCopy) menu.append(new MenuItem({ role: 'copy', label: 'Copiar' }));

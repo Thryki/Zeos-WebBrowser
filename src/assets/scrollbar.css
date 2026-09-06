@@ -1,0 +1,42 @@
+/* Scrollbars for the browser's own pages.
+ *
+ * Only the ::-webkit- pseudo-elements are used, deliberately: Chromium lets the
+ * standard scrollbar-width/scrollbar-color win whenever both are set, and those
+ * cannot express the inset thumb this design wants.
+ *
+ * Everything is expressed in theme tokens, because applyTheme rewrites those
+ * variables at runtime - a hardcoded colour here would desync the moment the
+ * user picks another theme.
+ */
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The transparent border plus background-clip is what makes the thumb read as a
+ * narrow pill floating in the gutter rather than a bar filling it. */
+::-webkit-scrollbar-thumb {
+  background: var(--border, #2a2a2a);
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent, #22c55e) 55%, var(--border, #2a2a2a));
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--accent, #22c55e);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
