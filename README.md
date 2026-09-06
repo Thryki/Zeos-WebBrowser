@@ -1,10 +1,22 @@
-# 🪐 Zeos WebBrowser
+# Zeos WebBrowser
 
 <div align="center">
 
-<img src="src/assets/zeos-logo-512.png" width="140" alt="Zeos Logo">
+```
+ .........-@@@@@@@@@@@@.            *@@@@@+.       =@@@@@@@@@@*        .@@@@@=
+         :@@@@@@%+@@@@@.            *@@@@@.         @@@@@@@@@@+         =====:
+        .%@@@@@@:=@@@@@.            *@@@@@          %@@@@@@@@@+
+       .%@@@@@@- =@@@@@@@@@@@@@@@@@@@@@@@@          %@@@@@@@@@@*+++++++++++-
+       #@@@@@@=  =@@@@@@@@@@@@@@@@@@@@@@@@          %@@@@@@@@@@@@@@@@@@@@@@@#
+      *@@@@@@+   =@@@@@@@@@@@@@@@@@@@@@@@@          %@@@@@@@@@@@@@@@@@@@@@@@@+
+     +@@@@@@+    =@@@@@@@@@@@@@@@@@@@@@@@@          %@@@@#+@@@@@@@@@@@@@@@@@@%
+    =@@@@@@*     =@@@@@@@@@@@@@@@@@@@@@@@@          %@@@@# :+***********@@@@@@
+   -@@@@@@#      =@@@@@.            *@@@@@          %@@@@#              -@@@@@
+  :@@@@@@%.      =@@@@@.            *@@@@@.         %@@@@%++++:         -@@@@@
+ :@@@@@@%.       =@@@@@.            *@@@@@=        -@@@@@@@@@@+         =@@@@@
+```
 
-**Navegador Web Desktop Ultraleve, Fluido e 100% Livre de Rastreadores**
+**Navegador desktop ultraleve, sem telemetria e sem rastreadores**
 
 [![Version](https://img.shields.io/badge/version-1.1.0-22c55e.svg?style=flat-square)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
@@ -13,7 +25,7 @@
 [![Trackers](https://img.shields.io/badge/Trackers-0%20(Zero)-success.svg?style=flat-square)]()
 [![Telemetry](https://img.shields.io/badge/Telemetry-Disabled-blue.svg?style=flat-square)]()
 
-[Recursos](#-recursos) • [Filosofia](#-filosofia--privacidade) • [Atalhos](#-atalhos-de-teclado) • [Instalação](#-instalação-e-uso) • [Arquitetura](#-arquitetura-do-projeto) • [Licença](#-licença)
+[Nova aba](#-a-nova-aba) • [Recursos](#-recursos) • [Privacidade](#%EF%B8%8F-filosofia--privacidade) • [Atalhos](#%EF%B8%8F-atalhos-de-teclado) • [Downloads](#-downloads-binários-prontos) • [Arquitetura](#%EF%B8%8F-arquitetura-do-projeto)
 
 </div>
 
@@ -21,210 +33,270 @@
 
 ## 📖 Visão Geral
 
-O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **privacidade absoluta**, **minimalismo** e **alto desempenho**. Construído com Chromium e Electron, o Zeos elimina todo o inchaço (*bloatware*), telemetrias ocultas e recursos desnecessários presentes nos navegadores tradicionais, entregando uma experiência de navegação direta, rápida e com consumo otimizado de memória RAM e processamento.
+O **Zeos WebBrowser** é um navegador desktop para quem valoriza **privacidade**,
+**minimalismo** e **desempenho**. Construído sobre Chromium e Electron, ele
+descarta o inchaço, a telemetria e os recursos que ninguém pediu, e entrega
+navegação direta com consumo baixo de memória e CPU.
+
+O Zeos é também **um componente do sistema Zeos maior** — a camada de agentes,
+memória e orquestração vive fora deste repositório. Aqui está a infraestrutura
+de navegação: abas, páginas, navegação, extensões e a fundação de workspaces.
+Veja [ROADMAP.md](ROADMAP.md) para a separação de camadas.
 
 ---
 
 ## 🛡️ Filosofia & Privacidade
 
-- **Zero Telemetria e Rastreadores:** O Zeos não coleta nenhum dado de navegação, cliques, histórico ou métricas para servidores remotos. Toda a sua atividade fica estritamente na sua máquina.
-- **Interface Ultra Enxuta (Zen UI):** O conteúdo da web é o foco total. A barra de endereços e navegação pode ser recolhida ou expandida dinamicamente para aproveitar 100% da sua tela.
-- **Consumo Mínimo de Recursos:** Gerenciamento eficiente de processos de abas (WebContentsView) com monitoramento visual em tempo real do uso de CPU e memória RAM consumida pelo navegador.
-- **Mecanismos de Busca Privados por Padrão:** Integração nativa com provedores de busca focados em privacidade (DuckDuckGo, Brave Search, Ecosia, entre outros).
+- **Zero telemetria e rastreadores.** Nenhum dado de navegação, clique, histórico
+  ou métrica sai da sua máquina.
+- **Favicons sem serviços externos.** Os ícones dos sites vêm das próprias
+  páginas — nenhum domínio visitado é enviado a terceiros. O ícone de um atalho
+  fixado é lido **uma vez**, do próprio site, no momento em que você o fixa, e
+  guardado localmente: abrir uma aba nova não gera requisição nenhuma.
+- **Sem fontes remotas.** Nenhuma página interna busca fontes ou ícones de CDN;
+  tudo o que a interface desenha está no repositório.
+- **Corretor ortográfico desligado.** O Hunspell do Chromium baixaria
+  dicionários de um CDN do Google a cada idioma detectado.
+- **Permissões negadas por padrão.** Notificações, microfone e câmera começam
+  desligados e são controlados separadamente nas Configurações.
+- **Janela privada real** (`Ctrl + Shift + N`): partição em memória, sem
+  histórico e sem cookies em disco.
+- **Buscadores privados por padrão:** DuckDuckGo, Brave Search e Ecosia entre as
+  opções, com DuckDuckGo como padrão.
+
+---
+
+## 🌌 A nova aba
+
+A página inicial do Zeos é um laboratório de ASCII 3D rodando em tempo real
+atrás do conteúdo — um port do
+[3D ASCII & Dither Lab do Razi](https://www.figma.com/community) para JavaScript
+puro, com o three.js embutido no repositório.
+
+- **Fundo 3D ao vivo.** O logotipo do Zeos, modelado no Blender a partir do
+  próprio vetor da marca, girando e sombreado por shaders ASCII ou dither.
+- **Painel completo na engrenagem.** As mesmas configurações da ferramenta
+  original: 20 predefinições, tipo de efeito (ASCII, Bayer, ruído), níveis,
+  fonte e conjunto de caracteres, resolução, escala, trio de cores, matriz de
+  dither, editor de paleta, luz, proporção, e exportação em PNG e vídeo.
+- **Carregue o que quiser.** Arraste um `.glb`, `.gltf` ou `.obj` para trocar o
+  modelo — ou uma imagem ou vídeo, que entram como plano texturizado.
+- **Desligável.** `Menu ≡ → Nova aba com three.js`, ou em
+  `Configurações → Aparência`. Desligado, o canvas nem é criado e no lugar
+  aparece a marca em ASCII estático.
+- **Atalhos fixados.** Uma linha de sites logo abaixo da busca, com o ícone real
+  de cada um. O botão **+** abre um seletor editável — remova o que não usa,
+  cole qualquer endereço para adicionar. Teto de doze, e o descarte nunca tira
+  um site que está fixado.
 
 ---
 
 ## ✨ Recursos
 
-### 🗂️ Gerenciamento Avançado de Abas
-- **Multi-abas fluido:** Crie, feche, duplique e alterne abas instantaneamente.
-- **Arrastar e Soltar Completo (*Drag & Drop*):**
-  - Reordene abas na mesma janela com indicador de posição.
-  - Puxe abas para fora para criar uma nova janela (*tear-off* — a página é recarregada na nova janela).
-  - **Mova abas entre janelas diferentes:** Arraste uma aba de uma janela para outra mantendo o estado da página sem recarregar. Se a janela de origem ficar sem abas, ela é fechada automaticamente.
-- **Fixar Abas (*Pinned Tabs*):** Fixe suas abas mais usadas como ícones compactos na barra.
-- **Fechamento Inteligente:** Fechar a última aba fecha a janela correspondente (igual ao Google Chrome).
-- **Menu de Contexto de Abas:** Opções rápidas para *Nova aba à direita*, *Duplicar*, *Fixar*, *Fechar outras abas* e *Fechar abas à direita*.
+### 🗂️ Abas
 
-### 🔒 Privacidade & Segurança
-- **Modo Anônimo / Janela Privada (Ctrl + Shift + N):** Cria janelas isoladas com partição de memória temporária e sem armazenamento de histórico ou cookies em disco.
-- **Gerenciamento de Dados Locais:** Limpeza fácil de cookies, cache e histórico por período (última hora, 24 horas, 7 dias, 30 dias ou todo o período).
-- **Favicons sem serviços externos:** Os ícones dos sites vêm exclusivamente das próprias páginas — nenhum domínio visitado é enviado a serviços de terceiros.
+- Multi-abas com criar, fechar, duplicar e alternar.
+- **Arrastar e soltar completo:** reordenar na mesma janela, arrastar para fora
+  criando outra janela, e **mover entre janelas** preservando o estado da página
+  sem recarregar.
+- **Abas fixadas** como ícones compactos.
+- Fechar a última aba fecha a janela, como no Chrome.
+- Menu de contexto com *nova aba à direita*, *duplicar*, *fixar*, *fechar
+  outras* e *fechar à direita*.
 
-### ⚡ Produtividade & Utilidades
-- **Painel de Downloads Integrado (Ctrl + J):** Gerenciador de downloads com anel de progresso em tempo real e acesso direto à pasta de arquivos.
-- **Gerenciador Completo de Extensões (zeos://extensions ou Ctrl + Shift + E):**
-  - Interface inspirada no Google Chrome com pesquisa em tempo real, alternador de Modo de Desenvolvedor e cards detalhados.
-  - Carregamento de extensões descompactadas (*Manifest V2* e *Manifest V3*).
-  - Inspeção direta de Service Workers / Background Pages com DevTools em 1 clique.
-  - Ativar/Desativar extensões com alternadores persistentes e recarregamento individual ou global.
-  - Ferramenta integrada de empacotamento de extensões em `.zip`.
-  - Visualização de atalhos e comandos de teclado configurados.
-- **Métricas do Sistema em Tempo Real:** Visualização do uso de CPU (%) e memória RAM (MB) do navegador diretamente no cabeçalho.
-- **Personalização Visual e Temas:** 16 paletas de cores (*Orca*, *Dracula*, *Nord*, *Tokyo Night*, etc.), ajuste de zoom global persistente e escolha de fontes monoespaçadas modernas.
-- **Página de nova aba:** Busca, favoritos e visitados recentemente em uma página local (defina `zeos://nova-aba` como página inicial nas Configurações).
-- **Favoritos:** Salve a página atual com `Ctrl + D` (ou pela estrela na barra de endereços) e gerencie tudo em uma página dedicada com busca.
-- **Histórico:** Página dedicada com busca e filtros por período.
+### 🔒 Privacidade & dados
+
+- Janela privada isolada em memória.
+- Limpeza de cookies, cache e histórico por período (última hora, 24 h, 7 dias,
+  30 dias ou tudo).
+- **Microfone e câmera separados**, cada um com seu liga/desliga.
+
+### 🧩 Extensões
+
+Gerenciador em `zeos://extensions` (`Ctrl + Shift + E`), com carregamento de
+extensões descompactadas (Manifest V2 e V3), inspeção de service workers em um
+clique, ativar/desativar persistente, recarregamento individual ou global e
+empacotamento em `.zip`.
+
+O Zeos preenche as APIs que o Electron não implementa (`chrome.contextMenus`,
+`chrome.commands`, entre outras) com um polyfill injetado numa cópia da
+extensão — **a pasta original nunca é tocada**.
+
+A **[Dislexfy](https://github.com/Thryki/dislexfy)** vem integrada: selecione um
+texto, clique com o botão direito e escolha **Ler com Dislexfy** para ouvi-lo.
+
+### ⚡ Produtividade
+
+- **Downloads** (`Ctrl + J`) com anel de progresso e acesso à pasta.
+- **Terminal do sistema** (`Ctrl + Shift + K`) — o terminal nativo embutido está
+  no roadmap; por ora o Zeos abre o do sistema operacional.
+- **Métricas em tempo real** de CPU e RAM no cabeçalho.
+- **16 temas** (Orca, Dracula, Nord, Tokyo Night, Gruvbox, Solarized…), zoom da
+  interface persistente e fontes monoespaçadas.
+- **Favoritos** com `Ctrl + D` e página dedicada com busca.
+- **Histórico** em `zeos://historico`, com busca, filtros por período, seleção
+  múltipla e exclusão por dia.
+- **Zoom por site**, lembrado por domínio.
 
 ---
 
 ## ⌨️ Atalhos de Teclado
 
-> No macOS, use **Cmd** no lugar de **Ctrl** (DevTools: **Cmd + Opt + I**).
+> No macOS use **Cmd** no lugar de **Ctrl** (DevTools: **Cmd + Opt + I**).
 
 | Atalho | Ação |
 | :--- | :--- |
-| Ctrl + T | Abrir nova aba |
-| Ctrl + W | Fechar aba ativa (ou clique com botão do meio do mouse) |
-| Ctrl + N | Abrir nova janela |
-| Ctrl + Shift + N | Abrir nova janela privada (anônima) |
-| Ctrl + L | Focar na barra de endereços (Omnibox) |
-| Ctrl + Tab / Ctrl + Shift + Tab | Alternar para a próxima / anterior aba |
-| Ctrl + 1 até Ctrl + 9 | Selecionar aba pelo número de posição |
-| Ctrl + J | Abrir / fechar painel de downloads |
-| Ctrl + Shift + E | Abrir Gerenciador de Extensões (`zeos://extensions`) |
-| Ctrl + H ou Ctrl + , | Abrir Configurações |
-| Ctrl + D | Salvar / remover a página dos favoritos |
-| Ctrl + B ou Ctrl + Shift + D | Abrir a página de Favoritos |
-| F5 / Ctrl + R | Recarregar página |
-| Ctrl + F5 / Ctrl + Shift + R | Recarregar ignorando cache |
-| Alt + ← / Alt + → | Voltar / Avançar no histórico |
-| Ctrl + + / Ctrl + - / Ctrl + 0 | Zoom da página (lembrado por site) |
+| Ctrl + T | Nova aba |
+| Ctrl + W | Fechar aba (ou clique do meio) |
+| Ctrl + N | Nova janela |
+| Ctrl + Shift + N | Nova janela privada |
+| Ctrl + L | Focar a barra de endereços |
+| Ctrl + Tab / Ctrl + Shift + Tab | Próxima / anterior aba |
+| Ctrl + 1 … Ctrl + 9 | Selecionar aba pela posição |
+| Ctrl + J | Painel de downloads |
+| Ctrl + Shift + K | Abrir o terminal do sistema |
+| Ctrl + Shift + E | Gerenciador de extensões |
+| Ctrl + H ou Ctrl + , | Configurações |
+| Ctrl + D | Salvar / remover dos favoritos |
+| Ctrl + B ou Ctrl + Shift + D | Página de favoritos |
 | Ctrl + Shift + T | Reabrir a última aba fechada |
+| F5 / Ctrl + R | Recarregar |
+| Ctrl + F5 / Ctrl + Shift + R | Recarregar ignorando cache |
+| Alt + ← / Alt + → | Voltar / avançar |
+| Ctrl + + / Ctrl + - / Ctrl + 0 | Zoom da página (lembrado por site) |
 | Ctrl + F / F3 | Localizar na página |
-| F12 / Ctrl + Shift + I | Abrir Ferramentas do Desenvolvedor (DevTools) |
+| F12 / Ctrl + Shift + I | DevTools |
 
 ---
 
-## 📦 Downloads (Binários Prontos)
+## 📦 Downloads (binários prontos)
 
-Baixe a versão mais recente na página de [**Releases**](https://github.com/Thryki/Zeos-WebBrowser/releases):
+Baixe na página de [**Releases**](https://github.com/Thryki/Zeos-WebBrowser/releases):
 
 | Plataforma | Arquivo |
 | :--- | :--- |
-| Windows (instalador) | `Zeos Setup x.y.z.exe` |
-| Windows (portátil, sem instalação) | `Zeos x.y.z.exe` |
+| Windows (instalador) | `Zeos-Setup-x.y.z-x64.exe` |
+| Windows (portátil) | `Zeos-Portable-x.y.z-x64.exe` |
 | macOS (Apple Silicon) | `Zeos-x.y.z-arm64.dmg` |
 | macOS (Intel) | `Zeos-x.y.z.dmg` |
 | Linux | `Zeos-x.y.z.AppImage` |
 
-> **⚠️ Builds não assinadas:**
-> - **Windows:** o SmartScreen pode alertar "aplicativo não reconhecido" — clique em **Mais informações → Executar assim mesmo**.
-> - **macOS:** o Gatekeeper pode dizer que o app "está danificado" ou é de "desenvolvedor não identificado". Na primeira abertura use **clique-direito → Abrir → Abrir**, ou remova a quarentena com:
+> **⚠️ Builds não assinadas.**
+> - **Windows:** o SmartScreen pode alertar "aplicativo não reconhecido" —
+>   clique em **Mais informações → Executar assim mesmo**.
+> - **macOS:** o Gatekeeper pode dizer que o app "está danificado". Na primeira
+>   abertura use **clique-direito → Abrir → Abrir**, ou remova a quarentena:
 >   ```bash
 >   xattr -cr /Applications/Zeos.app
 >   ```
 
 ---
 
-## 🚀 Instalação e Uso (a partir do código)
+## 🚀 Rodando a partir do código
 
 ### Pré-requisitos
-- [Node.js](https://nodejs.org/) versão 22 ou superior.
-- [Git](https://git-scm.com/) instalado no sistema.
 
-### 1. Clonar o Repositório
+- [Node.js](https://nodejs.org/) 22 ou superior — o glob do `node --test` exige.
+- [Git](https://git-scm.com/).
+
 ```bash
 git clone https://github.com/Thryki/Zeos-WebBrowser.git
 cd Zeos-WebBrowser
-```
-
-### 2. Instalar Dependências
-```bash
 npm install
+npm start
 ```
 
-### 3. Iniciar o Navegador
+No Windows, `Zeos.vbs` inicia sem abrir terminal.
 
-- **Modo Desenvolvimento:**
-  ```bash
-  npm start
-  ```
+### Testes
 
-- **No Windows sem terminal (Background Launcher):**
-  Dê um duplo clique no arquivo Zeos.vbs ou execute start.bat.
-
-### 4. Executar Testes Automatizados
 ```bash
-npm test
+npm test        # testes unitários (node --test)
+npm run check   # verificação de sintaxe de todos os módulos
 ```
 
-### 5. Gerar Builds (empacotamento)
+### Builds
+
 ```bash
-npm run dist:win    # Windows: instalador NSIS + portátil
-npm run dist:mac    # macOS: DMG + ZIP (requer macOS)
-npm run dist:linux  # Linux: AppImage
+npm run dist:win    # instalador NSIS + portátil
+npm run dist:mac    # DMG + ZIP (requer macOS)
+npm run dist:linux  # AppImage
+npm run icons       # regenera .ico/.icns a partir de src/assets/zeos-icon-1024.png
 ```
-Os artefatos são gerados em `dist/`. As builds de macOS são produzidas pelo CI
-(GitHub Actions) a cada tag `v*`, junto com as de Windows e Linux.
+
+Os artefatos saem em `dist/`. O CI (GitHub Actions) gera as três plataformas a
+cada tag `v*`.
 
 ---
 
 ## 🏗️ Arquitetura do Projeto
 
+Processo principal único (`src/main.js`), uma `WebContentsView` para o chrome e
+outra por aba. Conteúdo remoto nunca recebe Node, `contextIsolation` e `sandbox`
+ficam sempre ligados, e todo IPC privilegiado valida a entrada.
+
 ```
 Zeos WebBrowser/
 ├── src/
-│   ├── assets/              # Logotipos e ícones visuais
-│   ├── extensions/          # Gerenciador avançado de extensões (zeos://extensions)
-│   │   ├── extensions.css   # Estilização do painel de extensões
-│   │   ├── extensions.js    # Lógica de cards, busca, dev mode e packing
-│   │   └── index.html       # Estrutura base da página de extensões
-│   ├── favorites/           # Interface interna do gerenciador de favoritos
-│   ├── settings/            # Interface interna de configurações e histórico
-│   ├── ui/                  # Interface gráfica minimalista (HTML, CSS e JS)
-│   │   ├── app.css          # Estilização moderna e temas da interface
-│   │   ├── app.js           # Lógica do frontend e eventos de abas / drag & drop
-│   │   └── index.html       # Estrutura base do cabeçalho e janelas
-│   ├── extension-utils.js   # Lógica pura de extensões (zip, crc32, guardas) testável sem Electron
-│   ├── main.js              # Processo principal Electron (janelas, WebContentsViews, IPC)
-│   ├── navigation.js        # Parser inteligente de URLs e motores de busca
-│   ├── preload.js           # Bridge segura entre Main Process e Renderer (Context Isolation)
-│   ├── settings-preload.js  # Bridge para páginas especiais internas
-│   └── themes.js            # Definições de paletas e temas visuais
-├── test/                    # Testes unitários com Node Test Runner
-├── build/                   # Ícones e recursos de empacotamento (electron-builder)
-├── docs/                    # Documentação de release e baseline
-├── .github/workflows/       # CI (testes) e Release (builds multiplataforma)
-├── ROADMAP.md               # Visão futura (Zeos, LLM/MCP, agent workspaces)
-├── package.json             # Metadados, dependências e configuração de build
-├── Zeos.vbs                 # Inicializador silencioso para Windows
-├── start.bat                # Inicializador via terminal para Windows
-└── README.md                # Documentação oficial do projeto
+│   ├── main.js              # processo principal: janelas, abas, sessões, IPC
+│   ├── navigation.js        # parser de URL e motores de busca (puro, testável)
+│   ├── themes.js            # as 16 paletas
+│   ├── icons.js             # Lucide + marcas do simple-icons
+│   ├── preload.js           # bridge do chrome  (window.zeos)
+│   ├── settings-preload.js  # bridge das páginas internas
+│   ├── ui/                  # o chrome do navegador (abas, omnibox, downloads)
+│   ├── newtab/              # a nova aba
+│   │   └── ascii3d/         # o laboratório 3D: engine, shaders, presets, painel
+│   ├── settings/            # configurações e histórico (zeos://settings)
+│   ├── extensions/          # gerenciador de extensões (zeos://extensions)
+│   ├── favorites/           # favoritos (zeos://favoritos)
+│   ├── bundled-extensions/  # extensões que vêm com o navegador (Dislexfy)
+│   ├── vendor/three/        # three.js r184 vendorizado (ESM + import map)
+│   └── assets/              # marca, fontes, ASCII, folha da barra de rolagem
+├── test/                    # node --test
+├── build/                   # ícones e arte do instalador
+├── docs/                    # baseline de release e auditoria
+├── .github/workflows/       # CI e Release
+├── CLAUDE.md                # guia operacional e invariantes do projeto
+└── ROADMAP.md               # a camada Zeos: LLM, MCP, agent workspaces
 ```
+
+Invariantes que não se negociam estão em [CLAUDE.md](CLAUDE.md) — vale a leitura
+antes de mexer em workspaces, extensões ou no ciclo de vida das janelas.
 
 ---
 
 ## 🤝 Contribuindo
 
-Contribuições são muito bem-vindas! Se você deseja contribuir:
+1. Faça um fork e crie uma branch: `git checkout -b feature/minha-feature`.
+2. Rode `npm run check` e `npm test` antes de commitar.
+3. Commits pequenos e semânticos, sem misturar correção com refatoração.
+4. Abra um Pull Request descrevendo o que mudou e como você verificou.
 
-1. Faça um **Fork** do projeto.
-2. Crie uma branch para sua funcionalidade: git checkout -b feature/minha-feature.
-3. Faça commit das alterações: git commit -m 'feat: adiciona nova funcionalidade'.
-4. Execute os testes para garantir a integridade: `npm test`.
-5. Faça push para a sua branch: git push origin feature/minha-feature.
-6. Abra um **Pull Request**.
+A interface **não usa emoji**: ícones novos vêm do Lucide, colando o SVG do
+upstream em [src/icons.js](src/icons.js).
 
 ---
 
 ## 📜 Créditos de terceiros
 
-O código do Zeos é MIT. Os recursos abaixo vêm de terceiros e mantêm suas
-próprias licenças:
+O código do Zeos é MIT. Os recursos abaixo são de terceiros e mantêm suas
+licenças:
 
 | Recurso | Origem | Licença |
 | :--- | :--- | :--- |
 | Ícones da interface | [Lucide](https://lucide.dev) v1.41.0 | ISC |
-| Fonte do logo ASCII | [IBM VGA 8x16](https://int10h.org/oldschool-pc-fonts/), do Ultimate Oldschool PC Font Pack de VileR | CC BY-SA 4.0 |
-| Extensão Dislexfy | Integrada em `src/bundled-extensions/dislexfy` | do autor do projeto |
+| Marcas dos buscadores | [simple-icons](https://simpleicons.org) | CC0 1.0 |
+| Motor 3D | [three.js](https://threejs.org) r184, vendorizado em `src/vendor/three` | MIT |
+| Efeitos ASCII e dither | 3D ASCII & Dither Lab, de Razi | do autor |
+| Fonte bitmap | [IBM VGA 8x16](https://int10h.org/oldschool-pc-fonts/), do Ultimate Oldschool PC Font Pack de VileR | CC BY-SA 4.0 |
+| Extensão Dislexfy | [Thryki/dislexfy](https://github.com/Thryki/dislexfy), integrada em `src/bundled-extensions` | do autor |
 
-Textos de licença e instruções em [src/assets/fonts/](src/assets/fonts/) e
-[src/icons.js](src/icons.js). A interface não usa emoji: ícones novos devem
-vir do Lucide, colando o SVG do upstream em `src/icons.js`.
+Textos de licença em [src/assets/fonts/](src/assets/fonts/) e
+[src/vendor/three/](src/vendor/three/).
 
 ---
 
 ## 📄 Licença
 
-Este projeto está sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter mais informações.
+MIT. Veja [LICENSE](LICENSE).

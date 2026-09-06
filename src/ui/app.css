@@ -148,7 +148,8 @@ body.platform-darwin .window-controls {
 .ui-icon {
   width: 14px;
   height: 14px;
-  fill: currentColor;
+  display: inline-grid;
+  place-items: center;
 }
 
 /* ==========================================================================
@@ -471,8 +472,10 @@ body.platform-darwin .window-controls {
 .omnibox-search-icon {
   width: 13px;
   height: 13px;
-  fill: var(--muted);
+  color: var(--muted);
   flex: 0 0 13px;
+  display: inline-grid;
+  place-items: center;
 }
 
 .omnibox-container:focus-within {
@@ -482,7 +485,7 @@ body.platform-darwin .window-controls {
 }
 
 .omnibox-container:focus-within .omnibox-search-icon {
-  fill: var(--accent);
+  color: var(--accent);
 }
 
 #omnibox {

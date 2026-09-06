@@ -80,7 +80,12 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "shortcutName": "Zeos",
+      "artifactName": "Zeos-Setup-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": [
@@ -130,7 +135,33 @@
           "https"
         ]
       }
-    ]
+    ],
+    "portable": {
+      "artifactName": "Zeos-Portable-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "background": "build/background.png",
+      "icon": "build/icon.icns",
+      "iconSize": 96,
+      "title": "Zeos ${version}",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 250,
+          "type": "file"
+        },
+        {
+          "x": 390,
+          "y": 250,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   },
   "dependencies": {
     "electron-updater": "^6.8.9"

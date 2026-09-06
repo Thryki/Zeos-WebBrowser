@@ -1,5 +1,10 @@
 'use strict';
 
+// Static markup declares icons with data-icon; fill them from the Lucide set.
+for (const holder of document.querySelectorAll('[data-icon]')) {
+  holder.innerHTML = iconMarkup(holder.dataset.icon, Number(holder.dataset.iconSize) || 14);
+}
+
 // DOM Elements
 const tabsElement = document.querySelector('#tabs');
 const omnibox = document.querySelector('#omnibox');
@@ -218,9 +223,9 @@ function renderTabs() {
     const favicon = document.createElement('span');
     favicon.className = 'tab-favicon';
     if (tab.kind === 'settings') {
-      favicon.innerHTML = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path fill="currentColor" d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>';
+      favicon.innerHTML = iconMarkup('settings', 14);
     } else if (tab.kind === 'favorites') {
-      favicon.innerHTML = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/></svg>';
+      favicon.innerHTML = iconMarkup('star', 14);
     } else if (tab.favicon) {
       const img = document.createElement('img');
       img.src = tab.favicon;
@@ -229,14 +234,14 @@ function renderTabs() {
       img.height = 14;
       const fallbackSvg = document.createElement('span');
       fallbackSvg.style.display = 'none';
-      fallbackSvg.innerHTML = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zm4.93 7h-2.18a10.87 10.87 0 0 0-.91-4.05A6.02 6.02 0 0 1 12.93 7zM8 2.06c.66 1.34 1.16 3.03 1.29 4.94H6.71C6.84 5.09 7.34 3.4 8 2.06zM2.07 9h2.18a10.87 10.87 0 0 0 .91 4.05A6.02 6.02 0 0 1 2.07 9zm2.18-2H2.07a6.02 6.02 0 0 1 3.99-4.05A10.87 10.87 0 0 0 4.25 7zM8 13.94c-.66-1.34-1.16-3.03-1.29-4.94h2.58C9.16 10.91 8.66 12.6 8 13.94zm2.84-4.94h2.18a6.02 6.02 0 0 1-3.99 4.05 10.87 10.87 0 0 0 .91-4.05z"/></svg>';
+      fallbackSvg.innerHTML = iconMarkup('globe', 14);
       img.onerror = () => {
         img.style.display = 'none';
         fallbackSvg.style.display = 'inline-flex';
       };
       favicon.append(img, fallbackSvg);
     } else {
-      favicon.innerHTML = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zm4.93 7h-2.18a10.87 10.87 0 0 0-.91-4.05A6.02 6.02 0 0 1 12.93 7zM8 2.06c.66 1.34 1.16 3.03 1.29 4.94H6.71C6.84 5.09 7.34 3.4 8 2.06zM2.07 9h2.18a10.87 10.87 0 0 0 .91 4.05A6.02 6.02 0 0 1 2.07 9zm2.18-2H2.07a6.02 6.02 0 0 1 3.99-4.05A10.87 10.87 0 0 0 4.25 7zM8 13.94c-.66-1.34-1.16-3.03-1.29-4.94h2.58C9.16 10.91 8.66 12.6 8 13.94zm2.84-4.94h2.18a6.02 6.02 0 0 1-3.99 4.05 10.87 10.87 0 0 0 .91-4.05z"/></svg>';
+      favicon.innerHTML = iconMarkup('globe', 14);
     }
 
     const title = document.createElement('span');
@@ -423,7 +428,7 @@ function renderDownloadsList() {
 
     const iconEl = document.createElement('div');
     iconEl.className = 'dl-item-icon';
-    iconEl.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>';
+    iconEl.innerHTML = iconMarkup('file', 16);
 
     const infoEl = document.createElement('div');
     infoEl.className = 'dl-item-info';
@@ -477,7 +482,7 @@ function renderDownloadsList() {
     const folderBtn = document.createElement('button');
     folderBtn.className = 'dl-btn-action';
     folderBtn.title = 'Mostrar na pasta';
-    folderBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" fill="currentColor"/></svg>';
+    folderBtn.innerHTML = iconMarkup('folder-open', 14);
     folderBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       window.zeos.downloads.showInFolder(item.savePath);

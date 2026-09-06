@@ -2076,6 +2076,9 @@ class Browser {
     if (ctrl && key === '-') { event.preventDefault(); this.zoomPage(-1); return; }
     if (ctrl && key === '0') { event.preventDefault(); this.zoomPage(0); return; }
     if (ctrl && input.shift && key === 't') { event.preventDefault(); this.reopenClosedTab(); return; }
+    // The new tab advertises Ctrl+Shift+K next to its terminal button; without
+    // this the label was a promise the browser did not keep.
+    if (ctrl && input.shift && key === 'k') { event.preventDefault(); openSystemTerminal(); return; }
     if (ctrl && key === 'tab') { event.preventDefault(); this.cycle(input.shift ? -1 : 1); return; }
     if (ctrl && /^[1-9]$/u.test(key)) { event.preventDefault(); const next = this.tabs[Number(key) - 1] || this.tabs.at(-1); if (next) this.selectTab(next.id); return; }
     if (input.alt && input.key === 'ArrowLeft' && tab?.view.webContents.navigationHistory.canGoBack()) { event.preventDefault(); tab.view.webContents.navigationHistory.goBack(); return; }
