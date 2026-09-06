@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('zeos', {
     ipcRenderer.on('browser:system-stats', listener);
     return () => ipcRenderer.removeListener('browser:system-stats', listener);
   },
+  setSuggestionsOpen: (open) => ipcRenderer.invoke('browser:set-suggestions-open', Boolean(open)),
+  suggest: (query) => ipcRenderer.invoke('omnibox:suggest', query),
   toggleFavorite: () => ipcRenderer.invoke('favorites:toggle-active'),
   find: (text, options) => ipcRenderer.invoke('browser:find', { text, options }),
   stopFind: () => ipcRenderer.invoke('browser:stop-find'),

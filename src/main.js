@@ -410,6 +410,7 @@ function writeSessionSnapshot() {
 
 const { crc32, packZip, isRemovableRunnerDir } = require('./extension-utils');
 const { normalizeSessionWindows, buildSessionEntry } = require('./session-store');
+const { rankSuggestions } = require('./suggestions');
 
 const ZEOS_EXTENSION_POLYFILL = `
 // === ZEOS CHROME EXTENSION POLYFILL ===
@@ -1293,6 +1294,7 @@ class Browser {
     this.downloads = 0;
     this.htmlFullscreen = false;
     this.findOpen = false;
+    this.suggestionsOpen = false;
     this.downloadsPanelOpen = false;
     this.sessionTimer = undefined;
     this.dragStartBounds = null;
@@ -1403,6 +1405,11 @@ class Browser {
 
     if (this.htmlFullscreen) {
       this.chrome.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    } else if (this.suggestionsOpen) {
+      // The dropdown is drawn by the chrome view, which is only as tall as the
+      // header; it needs room or it would be clipped away.
+      this.window.contentView.addChildView(this.chrome);
+      this.chrome.setBounds({ x: 0, y: 0, width, height: Math.min(height, top + Math.round(320 * zoomFactor)) });
     } else if (this.downloadsPanelOpen) {
       this.window.contentView.addChildView(this.chrome);
       this.chrome.setBounds({ x: 0, y: 0, width, height: Math.min(height, Math.round(520 * zoomFactor)) });
@@ -2385,6 +2392,19 @@ ipcMain.handle('browser:attach-tab', (event, { tabId, newIndex } = {}) => chrome
 ipcMain.handle('browser:tear-off-tab', (event, { tabId, screenX, screenY } = {}) => chromeOwners.get(event.sender.id)?.tearOffTab(tabId, screenX, screenY));
 
 // Downloads IPC
+ipcMain.handle('browser:set-suggestions-open', (event, open) => {
+  const browser = chromeOwners.get(event.sender.id);
+  if (!browser) return false;
+  if (browser.suggestionsOpen === Boolean(open)) return true;
+  browser.suggestionsOpen = Boolean(open);
+  browser.layout();
+  return true;
+});
+ipcMain.handle('omnibox:suggest', (_event, query) => {
+  if (typeof query !== 'string') return [];
+  return rankSuggestions(query, { history: settings.history || [], favorites, limit: 6 });
+});
+
 // Favorites
 ipcMain.handle('favorites:list', () => favorites);
 ipcMain.handle('favorites:toggle-active', (event) => chromeOwners.get(event.sender.id)?.toggleFavorite() ?? false);

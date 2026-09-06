@@ -966,3 +966,107 @@ window.zeos.onOpenFind(() => openFind());
 if (favoriteButton) {
   favoriteButton.addEventListener('click', () => window.zeos.toggleFavorite());
 }
+
+// Omnibox suggestions
+const suggestionsEl = document.querySelector('#suggestions');
+let suggestions = [];
+let suggestionIndex = -1;
+let suggestSeq = 0;
+
+function hideSuggestions() {
+  if (!suggestionsEl) return;
+  if (!suggestionsEl.hidden) window.zeos.setSuggestionsOpen(false);
+  suggestionsEl.hidden = true;
+  suggestionsEl.replaceChildren();
+  suggestions = [];
+  suggestionIndex = -1;
+}
+
+function renderSuggestions() {
+  if (!suggestionsEl) return;
+  suggestionsEl.replaceChildren();
+  if (!suggestions.length) {
+    if (!suggestionsEl.hidden) window.zeos.setSuggestionsOpen(false);
+    suggestionsEl.hidden = true;
+    return;
+  }
+  suggestions.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = `suggestion${index === suggestionIndex ? ' selected' : ''}`;
+    row.role = 'option';
+    row.setAttribute('aria-selected', String(index === suggestionIndex));
+
+    if (item.favorite) {
+      const star = document.createElement('span');
+      star.className = 'suggestion-star';
+      star.textContent = '★';
+      row.appendChild(star);
+    }
+
+    const title = document.createElement('span');
+    title.className = 'suggestion-title';
+    title.textContent = item.title || item.url;
+
+    const url = document.createElement('span');
+    title.title = item.title || '';
+    url.className = 'suggestion-url';
+    url.textContent = item.url;
+
+    row.append(title, url);
+    // mousedown, not click: the omnibox blur would tear the row down first.
+    row.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      openSuggestion(index);
+    });
+    suggestionsEl.appendChild(row);
+  });
+  suggestionsEl.hidden = false;
+  window.zeos.setSuggestionsOpen(true);
+}
+
+function openSuggestion(index) {
+  const item = suggestions[index];
+  if (!item) return;
+  hideSuggestions();
+  omnibox.value = item.url;
+  command('navigate', item.url);
+  omnibox.blur();
+}
+
+async function refreshSuggestions() {
+  const query = omnibox.value.trim();
+  if (!query || document.activeElement !== omnibox) {
+    hideSuggestions();
+    return;
+  }
+  const seq = ++suggestSeq;
+  const results = await window.zeos.suggest(query);
+  if (seq !== suggestSeq || document.activeElement !== omnibox) return;
+  suggestions = Array.isArray(results) ? results : [];
+  suggestionIndex = -1;
+  renderSuggestions();
+}
+
+function moveSuggestion(delta) {
+  if (!suggestions.length) return false;
+  suggestionIndex += delta;
+  if (suggestionIndex < -1) suggestionIndex = suggestions.length - 1;
+  if (suggestionIndex >= suggestions.length) suggestionIndex = -1;
+  renderSuggestions();
+  return true;
+}
+
+if (suggestionsEl) {
+  omnibox.addEventListener('input', refreshSuggestions);
+  omnibox.addEventListener('blur', () => setTimeout(hideSuggestions, 120));
+  omnibox.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (moveSuggestion(event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();
+    } else if (event.key === 'Enter' && suggestionIndex >= 0) {
+      event.preventDefault();
+      openSuggestion(suggestionIndex);
+    } else if (event.key === 'Escape') {
+      hideSuggestions();
+    }
+  });
+}
