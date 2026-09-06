@@ -2731,14 +2731,60 @@ if (process.platform === 'win32') app.setAppUserModelId('com.thryki.zeos');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
     const browser = browsers.values().next().value;
     if (browser?.window && !browser.window.isDestroyed()) {
       if (browser.window.isMinimized()) browser.window.restore();
       browser.window.focus();
     }
+    // Windows and Linux hand a link to the already-running instance as argv.
+    const url = urlFromArgv(argv);
+    if (url && browser) browser.createWebTab(url, true);
   });
 }
+
+// Links opened from other applications arrive as a command-line argument
+// (Windows/Linux) or through the open-url event (macOS).
+// Checks GitHub releases for a newer build and installs it on quit, after
+// asking. macOS is skipped: Squirrel.Mac refuses unsigned updates.
+function setupAutoUpdate() {
+  if (!app.isPackaged || process.platform === 'darwin') return;
+  let updater;
+  try { ({ autoUpdater: updater } = require('electron-updater')); } catch { return; }
+
+  updater.autoDownload = false;
+  updater.autoInstallOnAppQuit = true;
+  updater.on('error', (error) => console.error('Update check failed:', error?.message || error));
+  updater.on('update-available', async (info) => {
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      buttons: ['Baixar agora', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Atualização disponível',
+      message: `A versão ${info?.version || 'mais recente'} do Zeos está disponível.`,
+      detail: 'O download acontece em segundo plano e a atualização é aplicada quando você fechar o navegador.'
+    });
+    if (response === 0) updater.downloadUpdate().catch((error) => console.error('Update download failed:', error?.message || error));
+  });
+
+  setTimeout(() => updater.checkForUpdates().catch(() => {}), 10000);
+}
+
+function urlFromArgv(argv) {
+  if (!Array.isArray(argv)) return '';
+  const candidate = argv.slice(1).find((arg) => /^https?:\/\//i.test(arg));
+  return candidate || '';
+}
+
+let pendingOpenUrl = urlFromArgv(process.argv);
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  if (!/^https?:\/\//i.test(url)) return;
+  const browser = browsers.values().next().value;
+  if (browser) browser.createWebTab(url, true);
+  else pendingOpenUrl = url;
+});
 
 app.whenReady().then(async () => {
   settings = loadSettings();
@@ -2752,9 +2798,20 @@ app.whenReady().then(async () => {
   }
   setupSession(session.defaultSession);
   await loadSavedExtensions();
+  setupAutoUpdate();
+
+  // Register as a browser so the OS can offer Zeos as the default handler.
+  for (const scheme of ['http', 'https']) {
+    try { app.setAsDefaultProtocolClient(scheme); } catch {}
+  }
+
   const savedWindows = readSessionWindows();
   if (savedWindows.length) for (const entry of savedWindows) new Browser(false, entry);
   else new Browser(false, true);
+  if (pendingOpenUrl) {
+    browsers.values().next().value?.createWebTab(pendingOpenUrl, true);
+    pendingOpenUrl = '';
+  }
   app.on('activate', () => { if (!browsers.size) new Browser(false, true); });
 
   // System stats timer

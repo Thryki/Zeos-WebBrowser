@@ -105,13 +105,31 @@
         "AppImage"
       ],
       "icon": "build/icons",
-      "category": "Network"
+      "category": "Network",
+      "desktop": {
+        "entry": {
+          "MimeType": "text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;",
+          "StartupNotify": "true"
+        }
+      }
     },
     "publish": {
       "provider": "github",
       "owner": "Thryki",
       "repo": "Zeos-WebBrowser",
       "releaseType": "release"
-    }
+    },
+    "protocols": [
+      {
+        "name": "Web",
+        "schemes": [
+          "http",
+          "https"
+        ]
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
