@@ -5,13 +5,6 @@
 <title>Nova aba</title>
 <style>
 @font-face {
-  font-family: "IBM VGA 8x16";
-  src: url("../assets/fonts/WebPlus_IBM_VGA_8x16.woff") format("woff");
-  font-display: block;
-}
-
-
-@font-face {
   font-family: "Brunea Mono";
   src: url("../assets/fonts/BruneaMono.woff2") format("woff2"),
        url("../assets/fonts/BruneaMono.otf") format("opentype"),
@@ -20,6 +13,11 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "IBM VGA 8x16";
+  src: url("../assets/fonts/WebPlus_IBM_VGA_8x16.woff") format("woff");
+  font-display: block;
+}
 
   :root {
     color-scheme: dark;
@@ -28,70 +26,225 @@
     font-family: "Brunea Mono", "IBM Plex Mono", "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 7vh 24px 60px; }
-  .brand { width: 100%; max-width: 1180px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 18px; }
-  #ascii-logo { width: 100%; height: 420px; display: block; cursor: crosshair; }
-  .brand span { font-size: 11px; opacity: .35; letter-spacing: .08em; text-transform: uppercase; }
-  form { width: 100%; max-width: 620px; display: flex; margin-bottom: 44px; }
-  #q {
-    flex: 1; height: 46px; padding: 0 18px; font: inherit; font-size: 14px; color: var(--fg);
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; outline: none;
-    transition: border-color .15s;
+  body {
+    background: var(--bg); color: var(--fg); min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 5vh 24px 70px;
   }
-  #q:focus { border-color: color-mix(in srgb, var(--accent) 65%, transparent); }
-  section { width: 100%; max-width: 720px; margin-bottom: 34px; }
-  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .4; margin-bottom: 12px; font-weight: 600; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+
+  /* Wordmark */
+  .brand { width: 100%; max-width: 1180px; display: flex; flex-direction: column; align-items: center; }
+  #ascii-logo { width: 100%; height: 300px; display: block; cursor: crosshair; }
+
+  /* Greeting */
+  .greeting { text-align: center; margin: -18px 0 26px; }
+  .greeting h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .greeting time { display: block; margin-top: 6px; font-size: 12px; opacity: .38; }
+
+  /* Terminal-framed prompt */
+  .prompt {
+    width: 100%; max-width: 720px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel); overflow: hidden;
+  }
+  .prompt-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 55%, var(--panel));
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; opacity: .55; }
+  .dot.r { background: #ef4444; } .dot.y { background: #eab308; } .dot.g { background: var(--accent); }
+  .prompt-title { margin-left: 6px; font-size: 11px; opacity: .4; }
+
+  .prompt-line { display: flex; align-items: center; gap: 10px; padding: 16px 16px 6px; }
+  .caret { color: var(--accent); font-size: 15px; flex: none; }
+  #q {
+    flex: 1; min-width: 0; height: 28px; font: inherit; font-size: 15px;
+    color: var(--fg); background: transparent; border: 0; outline: none;
+  }
+  #q::placeholder { opacity: .32; }
+
+  .prompt-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px 12px; flex-wrap: wrap; }
+  .chip {
+    display: flex; align-items: center; gap: 7px;
+    height: 30px; padding: 0 11px; font: inherit; font-size: 11.5px;
+    color: var(--fg); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 7px; cursor: pointer;
+  }
+  .chip:hover { background: var(--panel-hover); }
+  .chip .icon { opacity: .55; }
+  .chip select {
+    font: inherit; font-size: 11.5px; color: var(--fg);
+    background: transparent; border: 0; outline: none; cursor: pointer;
+  }
+  .chip select option { background: var(--panel); }
+  .chip.static { cursor: default; opacity: .75; }
+  .go {
+    margin-left: auto; width: 34px; height: 30px; display: grid; place-items: center;
+    border-radius: 7px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg)); color: var(--accent); cursor: pointer;
+  }
+  .go:hover { background: color-mix(in srgb, var(--accent) 30%, var(--bg)); }
+
+  /* Sections */
+  section { width: 100%; max-width: 940px; margin-top: 40px; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  h2 {
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .09em; opacity: .38;
+  }
+  .section-link {
+    font: inherit; font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em;
+    opacity: .38; background: none; border: 0; color: inherit; cursor: pointer;
+  }
+  .section-link:hover { opacity: .75; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
   .card {
-    display: flex; align-items: center; gap: 9px; padding: 11px 12px; border-radius: 9px; cursor: pointer;
-    background: var(--panel); border: 1px solid transparent; text-align: left; color: inherit; font: inherit;
+    display: flex; align-items: center; gap: 11px; padding: 12px 13px;
+    border-radius: 9px; cursor: pointer; text-align: left; color: inherit; font: inherit;
+    background: var(--panel); border: 1px solid transparent;
     transition: border-color .12s, background .12s;
   }
   .card:hover { background: var(--panel-hover); border-color: var(--border); }
-  .card img, .card .letter { width: 16px; height: 16px; flex: none; border-radius: 3px; }
-  .card .letter { display: grid; place-items: center; background: var(--panel-hover); font-size: 9px; font-weight: 700; }
-  .card span.label { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rows { display: flex; flex-direction: column; gap: 2px; }
-  .row {
-    display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border-radius: 7px; cursor: pointer;
-    background: transparent; border: 0; text-align: left; color: inherit; font: inherit;
+  .card .mark {
+    width: 26px; height: 26px; flex: none; display: grid; place-items: center;
+    border-radius: 6px; background: var(--bg); border: 1px solid var(--border);
+    font-size: 11px; font-weight: 700;
   }
-  .row:hover { background: var(--panel); }
-  .row .t { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
-  .row .u { font-size: 11px; opacity: .4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-  .empty { font-size: 12px; opacity: .35; }
+  .card .mark img { width: 15px; height: 15px; object-fit: contain; }
+  .card-text { min-width: 0; display: flex; flex-direction: column; }
+  .card-title { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-sub { display: block; font-size: 10.5px; opacity: .36; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+  .action {
+    display: flex; align-items: center; gap: 10px; padding: 13px 14px;
+    border-radius: 9px; cursor: pointer; color: inherit; font: inherit; text-align: left;
+    background: var(--panel); border: 1px solid transparent; transition: border-color .12s, background .12s;
+  }
+  .action:hover { background: var(--panel-hover); border-color: var(--border); }
+  .action .icon { opacity: .6; flex: none; }
+  .action-label { flex: 1; font-size: 12.5px; }
+  .keys {
+    font-size: 10px; padding: 2px 7px; border-radius: 5px;
+    background: var(--bg); border: 1px solid var(--border); opacity: .5;
+  }
+
+  .rows { display: flex; flex-direction: column; gap: 1px; }
+  .row-link {
+    display: flex; align-items: baseline; gap: 11px; padding: 8px 11px;
+    border-radius: 7px; cursor: pointer; background: transparent;
+    border: 0; color: inherit; font: inherit; text-align: left;
+  }
+  .row-link:hover { background: var(--panel); }
+  .row-link .t { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52%; }
+  .row-link .u { flex: 1; min-width: 0; font-size: 11px; opacity: .35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty { font-size: 11.5px; opacity: .3; padding: 6px 2px; }
 </style>
 </head>
 <body>
   <div class="brand">
     <canvas id="ascii-logo" role="img" aria-label="Zeos"></canvas>
-    <span id="provider"></span>
   </div>
-  <form id="search-form">
-    <input id="q" type="text" placeholder="Buscar ou digitar um endereço" autocomplete="off" spellcheck="false" autofocus />
+
+  <div class="greeting">
+    <h1 id="greeting-text">Olá.</h1>
+    <time id="greeting-time"></time>
+  </div>
+
+  <form class="prompt" id="search-form">
+    <div class="prompt-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="prompt-title">zeos@navegador:~</span>
+    </div>
+    <div class="prompt-line">
+      <span class="caret">&gt;</span>
+      <input id="q" type="text" placeholder="Buscar ou digitar um endereço" autocomplete="off" spellcheck="false" autofocus />
+    </div>
+    <div class="prompt-foot">
+      <label class="chip" id="provider-chip">
+        <span class="icon" data-icon="search"></span>
+        <select id="provider">
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="google">Google</option>
+          <option value="bing">Bing</option>
+          <option value="brave">Brave Search</option>
+          <option value="ecosia">Ecosia</option>
+        </select>
+      </label>
+      <span class="chip static"><span class="icon" data-icon="folder"></span><span id="fav-count">0 favoritos</span></span>
+      <button class="go" type="submit" title="Ir" aria-label="Ir"><span data-icon="arrow-right"></span></button>
+    </div>
   </form>
 
   <section id="fav-section" hidden>
-    <h2>Favoritos</h2>
-    <div class="grid" id="favs"></div>
+    <div class="section-head">
+      <h2>Favoritos</h2>
+      <button class="section-link" type="button" id="fav-all">ver todos</button>
+    </div>
+    <div class="cards" id="favs"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Comece algo</h2></div>
+    <div class="actions">
+      <button class="action" type="button" id="act-terminal">
+        <span class="icon" data-icon="terminal"></span>
+        <span class="action-label">novo terminal</span>
+        <span class="keys">Ctrl+Shift+K</span>
+      </button>
+      <button class="action" type="button" id="act-favorites">
+        <span class="icon" data-icon="star"></span>
+        <span class="action-label">favoritos</span>
+        <span class="keys">Ctrl+B</span>
+      </button>
+      <button class="action" type="button" id="act-settings">
+        <span class="icon" data-icon="settings"></span>
+        <span class="action-label">configurações</span>
+        <span class="keys">Ctrl+,</span>
+      </button>
+    </div>
   </section>
 
   <section id="hist-section" hidden>
-    <h2>Visitados recentemente</h2>
+    <div class="section-head">
+      <h2>Visitados recentemente</h2>
+      <button class="section-link" type="button" id="hist-all">ver todos</button>
+    </div>
     <div class="rows" id="hist"></div>
   </section>
+
+<script src="../icons.js"></script>
 <script>
   const favsEl = document.getElementById('favs');
   const histEl = document.getElementById('hist');
   const favSection = document.getElementById('fav-section');
   const histSection = document.getElementById('hist-section');
   const providerEl = document.getElementById('provider');
+  const favCountEl = document.getElementById('fav-count');
+
+  for (const holder of document.querySelectorAll('[data-icon]')) {
+    holder.innerHTML = iconMarkup(holder.dataset.icon, 14);
+  }
 
   function applyTheme(appearance = {}) {
     const root = document.documentElement.style;
     const map = { background: '--bg', foreground: '--fg', accent: '--accent', panel: '--panel', panelHover: '--panel-hover', border: '--border' };
     for (const [key, prop] of Object.entries(map)) if (appearance[key]) root.setProperty(prop, appearance[key]);
-    if (appearance.font) root.fontFamily = '"' + appearance.font + '", "SF Mono", Menlo, Consolas, monospace';
+    if (appearance.font) {
+      root.fontFamily = '"' + appearance.font + '", "Brunea Mono", "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace';
+    }
+  }
+
+  function greet() {
+    const now = new Date();
+    const hour = now.getHours();
+    const part = hour < 5 ? 'Boa madrugada' : hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    document.getElementById('greeting-text').textContent = `${part}.`;
+    document.getElementById('greeting-time').textContent = now.toLocaleDateString('pt-BR', {
+      weekday: 'short', day: 'numeric', month: 'short'
+    }) + ' · ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
 
   function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } }
@@ -104,32 +257,36 @@
   function renderFavorites(items) {
     favsEl.replaceChildren();
     favSection.hidden = !items.length;
-    for (const item of items.slice(0, 12)) {
+    favCountEl.textContent = items.length === 1 ? '1 favorito' : `${items.length} favoritos`;
+    for (const item of items.slice(0, 8)) {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'card';
       card.title = item.url;
+
+      const mark = document.createElement('span');
+      mark.className = 'mark';
       if (item.favicon) {
         const img = document.createElement('img');
         img.src = item.favicon;
         img.alt = '';
-        img.addEventListener('error', () => {
-          const letter = document.createElement('span');
-          letter.className = 'letter';
-          letter.textContent = hostOf(item.url)[0]?.toUpperCase() || '?';
-          img.replaceWith(letter);
-        });
-        card.appendChild(img);
+        img.addEventListener('error', () => { mark.textContent = (hostOf(item.url)[0] || '?').toUpperCase(); });
+        mark.appendChild(img);
       } else {
-        const letter = document.createElement('span');
-        letter.className = 'letter';
-        letter.textContent = hostOf(item.url)[0]?.toUpperCase() || '?';
-        card.appendChild(letter);
+        mark.textContent = (hostOf(item.url)[0] || '?').toUpperCase();
       }
-      const label = document.createElement('span');
-      label.className = 'label';
-      label.textContent = item.title || hostOf(item.url);
-      card.appendChild(label);
+
+      const text = document.createElement('span');
+      text.className = 'card-text';
+      const title = document.createElement('span');
+      title.className = 'card-title';
+      title.textContent = item.title || hostOf(item.url);
+      const sub = document.createElement('span');
+      sub.className = 'card-sub';
+      sub.textContent = hostOf(item.url);
+      text.append(title, sub);
+
+      card.append(mark, text);
       card.addEventListener('click', () => open(item.url, false));
       favsEl.appendChild(card);
     }
@@ -142,20 +299,20 @@
       if (seen.has(item.url)) continue;
       seen.add(item.url);
       recent.push(item);
-      if (recent.length >= 8) break;
+      if (recent.length >= 6) break;
     }
     histEl.replaceChildren();
     histSection.hidden = !recent.length;
     for (const item of recent) {
       const row = document.createElement('button');
       row.type = 'button';
-      row.className = 'row';
+      row.className = 'row-link';
       const t = document.createElement('span');
       t.className = 't';
       t.textContent = item.title || hostOf(item.url);
       const u = document.createElement('span');
       u.className = 'u';
-      u.textContent = item.url;
+      u.textContent = hostOf(item.url);
       row.append(t, u);
       row.addEventListener('click', () => open(item.url, false));
       histEl.appendChild(row);
@@ -170,10 +327,33 @@
     else if (window.zeosSettings) window.zeosSettings.openUrl(value);
   });
 
+  providerEl.addEventListener('change', () => {
+    window.zeosSettings?.update({ searchProvider: providerEl.value });
+  });
+
+  document.getElementById('act-terminal').addEventListener('click', () => {
+    window.zeosFavorites?.navigateSelf('zeos://terminal');
+  });
+  document.getElementById('act-favorites').addEventListener('click', () => {
+    window.zeosFavorites?.navigateSelf('zeos://favoritos');
+  });
+  document.getElementById('act-settings').addEventListener('click', () => {
+    window.zeosFavorites?.navigateSelf('zeos://settings');
+  });
+  document.getElementById('fav-all').addEventListener('click', () => {
+    window.zeosFavorites?.navigateSelf('zeos://favoritos');
+  });
+  document.getElementById('hist-all').addEventListener('click', () => {
+    window.zeosFavorites?.navigateSelf('zeos://settings');
+  });
+
+  greet();
+  setInterval(greet, 30000);
+
   if (window.zeosSettings) {
     const load = (settings) => {
       applyTheme(settings.appearance);
-      providerEl.textContent = settings.searchProvider || '';
+      if (settings.searchProvider) providerEl.value = settings.searchProvider;
       renderHistory(Array.isArray(settings.history) ? settings.history : []);
     };
     window.zeosSettings.get().then(load);
@@ -184,6 +364,6 @@
     window.zeosFavorites.onChanged(renderFavorites);
   }
 </script>
-  <script src="ascii-logo.js"></script>
+<script src="ascii-logo.js"></script>
 </body>
 </html>
