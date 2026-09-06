@@ -23,7 +23,11 @@
   const config = {
     word: 'ZEOS',
     texture: 'ZEOS#',      // what the lit face is filled with
-    shadeLevels: 8,        // depth buckets feeding the ordered dither
+    // Ordered dark to light: the cell picks its glyph by how lit it is.
+    ramp: ' .·:-=+*#%@',
+    ambient: 0.22,         // how dark the deepest recess goes
+    lightAngle: -0.7,      // where the key light sits, in radians
+    ditherAmount: 0.06,    // breaks the banding between ramp steps
     // The bitmap face is designed at 8x16; drawing it at any other size
     // blurs it, so the grid matches the glyph exactly.
     cellW: 8,
@@ -47,7 +51,7 @@
   let cols = 0;
   let rows = 0;
   let front = null;        // Uint8Array: 0 empty, 1 side face, 2 lit face
-  let shade = null;        // Uint8Array: dither ramp index for side faces
+  let lum = null;          // Float32Array: how brightly each cell is lit
   let edges = null;        // Uint8Array: 0 none, then an index into EDGE_CHARS
   const EDGE_CHARS = [null, '/', '\\', '|', '-'];
   // Ordered dither, so the receding faces break into a regular field of marks
@@ -133,14 +137,14 @@
     cols = Math.max(1, Math.floor(width / config.cellW));
     rows = Math.max(1, Math.floor(height / config.cellH));
     front = new Uint8Array(cols * rows);
-    shade = new Uint8Array(cols * rows);
+    lum = new Float32Array(cols * rows);
     edges = new Uint8Array(cols * rows);
     buildMask();
   }
 
   // Places a model point into the character grid, pushing it clear of the
   // pointer shield first so the hole stays perfectly round.
-  function stamp(px, py, kind, shadeIndex) {
+  function stamp(px, py, isCap, value) {
     let x = px;
     let y = py;
     if (pointer.active) {
@@ -157,10 +161,11 @@
     const row = (y / config.cellH) | 0;
     if (col < 0 || row < 0 || col >= cols || row >= rows) return;
     const index = row * cols + col;
-    // The lit face always wins over the shaded ones behind it.
-    if (front[index] === 2 && kind !== 2) return;
-    front[index] = kind;
-    shade[index] = shadeIndex;
+    // The cap always wins the cell; otherwise the brightest surface does.
+    if (front[index] === 2 && !isCap) return;
+    if (isCap) front[index] = 2;
+    else if (!front[index]) front[index] = 1;
+    if (isCap || value > lum[index]) lum[index] = value;
   }
 
   function step(now) {
@@ -170,6 +175,7 @@
 
     front.fill(0);
     edges.fill(0);
+    lum.fill(0);
 
     // A full, continuous turn: the solid rotates rather than rocking, so every
     // face comes around — front, edge-on, and the back of the letters.
@@ -192,14 +198,23 @@
     // Grows out of the back face, so the solid builds towards the viewer.
     const visibleSlices = Math.max(1, Math.round(config.slices * eased));
 
+    // The solid is shaded into a luminance buffer first and only turned into
+    // characters afterwards — the same order a rendered ASCII pass works in.
+    // Classifying faces geometrically produced flat plates; lighting the form
+    // and reading its brightness is what gives the letters volume.
+    const lightX = Math.cos(config.lightAngle);
+    const lightY = Math.sin(config.lightAngle);
+    const halfW = maskW / 2 || 1;
+    const halfH = maskH / 2 || 1;
+
     for (let s = 0; s < visibleSlices; s += 1) {
-      // Back to front, so the lit face is stamped last.
+      // Back to front, so the nearest surface wins each cell.
       const k = 1 - s / Math.max(1, config.slices - 1);
       const z = -config.depth / 2 + config.depth * k;
       const isFront = s === visibleSlices - 1 && form >= 1;
-      const shadeIndex = isFront
-        ? config.shadeLevels - 1
-        : Math.max(0, Math.min(config.shadeLevels - 2, Math.round((1 - k) * (config.shadeLevels - 2))));
+      // Depth falls off towards the back, the way ambient light does inside a
+      // recess.
+      const depthShade = config.ambient + (1 - config.ambient) * Math.pow(k, 0.8);
 
       for (let i = 0; i < maskPoints.length; i += 2) {
         const mx = maskPoints[i];
@@ -209,7 +224,12 @@
         const y2 = my * cosX - z1 * sinX;
         const z2 = z1 * cosX + my * sinX;
         const scale = config.focal / (config.focal + z2 + config.depth);
-        stamp(centreX + x1 * scale, centreY + y2 * scale, isFront ? 2 : 1, shadeIndex);
+
+        // A directional term across the form, so one flank catches the light
+        // and the opposite one falls into shadow.
+        const lit = 0.5 + 0.5 * ((mx / halfW) * lightX + (my / halfH) * -lightY);
+        const value = Math.max(0, Math.min(1, depthShade * (0.55 + 0.45 * lit)));
+        stamp(centreX + x1 * scale, centreY + y2 * scale, isFront, value);
       }
     }
 
@@ -270,13 +290,15 @@
           streamIndex += 1;
           alpha = 1;
         } else {
-          // Receding faces are an ordered dither: sparse marks with real gaps
-          // between them, never solid fill. Density carries the shading.
-          const level = shade[index];
-          const threshold = BAYER[(row & 3) * 4 + (col & 3)];
-          if (threshold >= level * 2) continue;
-          char = level < 3 ? '·' : level < 5 ? ':' : level < 7 ? '-' : '+';
-          alpha = 0.5 + (level / (config.shadeLevels - 1)) * 0.4;
+          // Everything else picks its glyph from how lit the cell is, so the
+          // shading follows the form instead of being decided per face. A
+          // little ordered dither breaks up the bands between ramp steps.
+          const dither = (BAYER[(row & 3) * 4 + (col & 3)] / 16 - 0.5) * config.ditherAmount;
+          const level = Math.max(0, Math.min(1, lum[index] + dither));
+          const rampIndex = Math.round(level * (config.ramp.length - 1));
+          char = config.ramp[rampIndex];
+          if (char === ' ') continue;
+          alpha = 0.45 + level * 0.55;
         }
 
         const x = col * config.cellW;
