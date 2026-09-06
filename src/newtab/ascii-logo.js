@@ -3,9 +3,9 @@
 // Zeos wordmark rendered the way a terminal would draw a solid: an extruded
 // 3D slab of the word, rasterised every frame into a strict character grid.
 //
-// The lit front face is filled with the word repeating as a texture; the
-// receding faces are shaded with a dither ramp, so depth reads through
-// character density alone. Monochrome by design — the charm is the grid.
+// The lit face is one continuous stream of the word; the receding faces are
+// an ordered dither of sparse marks, so depth reads through density alone.
+// Monochrome, on a strict grid: the charm is the terminal, not the colour.
 //
 // The pointer carries a round shield: any character caught inside it is
 // displaced to the rim, opening a clean hole that follows the cursor.
@@ -23,12 +23,10 @@
   const config = {
     word: 'ZEOS',
     texture: 'ZEOS#',      // what the lit face is filled with
-    // Textmode shading: dots give way to block elements, the signature
-    // texture of ANSI/PETSCII scene art.
-    ramp: ['·', ':', '░', '░', '▒', '▒', '▓', '█'],
+    shadeLevels: 8,        // depth buckets feeding the ordered dither
     cellW: 6,
     cellH: 9,
-    depth: 46,             // thickness of the slab, in model units
+    depth: 74,             // thickness of the slab, in model units
     slices: 16,            // extrusion samples between the back and front face
     focal: 1400,
     yawBase: 0.35,         // resting angle when motion is reduced
@@ -49,13 +47,15 @@
   let shade = null;        // Uint8Array: dither ramp index for side faces
   let edges = null;        // Uint8Array: 0 none, then an index into EDGE_CHARS
   const EDGE_CHARS = [null, '/', '\\', '|', '-'];
+  // Ordered dither, so the receding faces break into a regular field of marks
+  // with real gaps instead of a solid wash.
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   let width = 0;
   let height = 0;
   let dpr = 1;
   let startedAt = 0;
   let raf = 0;
   let foreground = '#f5f5f5';
-  let accent = '#22c55e';
   let fontFamily = 'monospace';
   const pointer = { x: -9999, y: -9999, nx: 0, ny: 0, active: false };
   let ripple = { at: -9999, x: 0, y: 0 };
@@ -63,7 +63,6 @@
   function readTheme() {
     const styles = getComputedStyle(document.documentElement);
     foreground = styles.getPropertyValue('--fg').trim() || foreground;
-    accent = styles.getPropertyValue('--accent').trim() || accent;
     fontFamily = styles.fontFamily || fontFamily;
   }
 
@@ -192,8 +191,8 @@
       const z = -config.depth / 2 + config.depth * k;
       const isFront = s === visibleSlices - 1 && form >= 1;
       const shadeIndex = isFront
-        ? config.ramp.length - 1
-        : Math.max(0, Math.min(config.ramp.length - 2, Math.round((1 - k) * (config.ramp.length - 2))));
+        ? config.shadeLevels - 1
+        : Math.max(0, Math.min(config.shadeLevels - 2, Math.round((1 - k) * (config.shadeLevels - 2))));
 
       for (let i = 0; i < maskPoints.length; i += 2) {
         const mx = maskPoints[i];
@@ -235,11 +234,13 @@
 
     // Paint the grid.
     ctx.clearRect(0, 0, width, height);
-    // Block elements need a face that actually ships them.
+    // Monochrome, like the reference: one ink on black.
+    ctx.fillStyle = foreground;
     ctx.font = `700 ${config.cellH - 1}px ${fontFamily}, Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     const texture = config.texture;
+    let streamIndex = 0;
     const rippleAge = now - ripple.at;
     const rippleRadius = rippleAge < 900 ? (rippleAge / 900) * config.shield * 5 : -1;
 
@@ -251,23 +252,24 @@
 
         let char;
         let alpha;
-        // Two inks, the way textmode pieces are drawn: the lit face and the
-        // outline carry the foreground, the receding faces the accent.
-        let ink = foreground;
         const edge = edges[index];
         if (edge) {
           char = EDGE_CHARS[edge];
-          alpha = kind === 2 ? 1 : 0.8;
+          alpha = 0.95;
         } else if (kind === 2) {
-          // Lit face: the name itself, tiled and offset per row so it reads
-          // as a continuous stream rather than stacked columns.
-          char = texture[(col + row * 3) % texture.length];
+          // The lit face is one continuous stream of the name, flowing left to
+          // right and wrapping from row to row, so it reads as running text.
+          char = texture[streamIndex % texture.length];
+          streamIndex += 1;
           alpha = 1;
         } else {
+          // Receding faces are an ordered dither: sparse marks with real gaps
+          // between them, never solid fill. Density carries the shading.
           const level = shade[index];
-          char = config.ramp[level];
-          alpha = 0.28 + (level / (config.ramp.length - 1)) * 0.44;
-          ink = accent;
+          const threshold = BAYER[(row & 3) * 4 + (col & 3)];
+          if (threshold >= level * 2) continue;
+          char = level < 3 ? '·' : level < 5 ? ':' : level < 7 ? '-' : '+';
+          alpha = 0.5 + (level / (config.shadeLevels - 1)) * 0.4;
         }
 
         const x = col * config.cellW;
@@ -280,7 +282,6 @@
         }
 
         ctx.globalAlpha = alpha * (0.25 + eased * 0.75);
-        ctx.fillStyle = ink;
         ctx.fillText(char, x, y);
       }
     }
