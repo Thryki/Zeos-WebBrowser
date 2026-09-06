@@ -1,5 +1,11 @@
 'use strict';
 
+// Static markup declares icons with data-icon; fill them from the Lucide set.
+for (const holder of document.querySelectorAll('[data-icon]')) {
+  holder.innerHTML = iconMarkup(holder.dataset.icon, 14);
+}
+
+
 // DOM Elements
 const searchInput = document.querySelector('#search-input');
 const searchClearBtn = document.querySelector('#search-clear');
