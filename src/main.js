@@ -203,7 +203,7 @@ function notifySettings() {
     applyZoomToBrowser(browser);
     browser.sendState();
     for (const tab of browser.tabs) {
-      if ((tab.kind === 'settings' || tab.kind === 'favorites' || tab.kind === 'extensions') && !tab.view.webContents.isDestroyed()) {
+      if ((tab.kind === 'settings' || tab.kind === 'favorites' || tab.kind === 'extensions' || tab.kind === 'newtab') && !tab.view.webContents.isDestroyed()) {
         tab.view.webContents.send('settings:changed', { ...copy(settings), themes: THEMES });
       }
     }
@@ -213,7 +213,12 @@ function notifySettings() {
 function updateSettings(patch) {
   if (!patch || typeof patch !== 'object') return { ...copy(settings), themes: THEMES };
   if (SEARCH_PROVIDERS[patch.searchProvider]) settings.searchProvider = patch.searchProvider;
-  if (typeof patch.initialPage === 'string' && patch.initialPage.trim() && patch.initialPage.length < 2048) settings.initialPage = toNavigationTarget(patch.initialPage, settings.searchProvider).url;
+  if (typeof patch.initialPage === 'string' && patch.initialPage.trim() && patch.initialPage.length < 2048) {
+    const wanted = patch.initialPage.trim();
+    settings.initialPage = /^zeos:\/\/(nova-aba|newtab)$/i.test(wanted)
+      ? 'zeos://nova-aba'
+      : toNavigationTarget(wanted, settings.searchProvider).url;
+  }
   
   // Theme ID selection
   if (typeof patch.themeId === 'string') {
@@ -382,7 +387,7 @@ function notifyHistorySoon() {
     const payload = { ...copy(settings), themes: THEMES };
     for (const browser of browsers) {
       for (const tab of browser.tabs) {
-        if ((tab.kind === 'settings' || tab.kind === 'favorites' || tab.kind === 'extensions') && !tab.view.webContents.isDestroyed()) {
+        if ((tab.kind === 'settings' || tab.kind === 'favorites' || tab.kind === 'extensions' || tab.kind === 'newtab') && !tab.view.webContents.isDestroyed()) {
           tab.view.webContents.send('settings:changed', payload);
         }
       }
@@ -1548,7 +1553,7 @@ class Browser {
     });
   }
   createView(kind) {
-    const isSpecial = kind === 'settings' || kind === 'favorites' || kind === 'extensions';
+    const isSpecial = kind === 'settings' || kind === 'favorites' || kind === 'extensions' || kind === 'newtab';
     const view = new WebContentsView({
       webPreferences: {
         preload: isSpecial ? path.join(__dirname, 'settings-preload.js') : undefined,
@@ -1566,7 +1571,7 @@ class Browser {
   // settings preload, and internal pages only in views created with it.
   // Crossing that boundary replaces the tab's view instead of reusing it.
   ensureViewKind(tab, kind) {
-    const isPrivileged = (k) => k === 'settings' || k === 'favorites' || k === 'extensions';
+    const isPrivileged = (k) => k === 'settings' || k === 'favorites' || k === 'extensions' || k === 'newtab';
     if (isPrivileged(kind) === isPrivileged(tab.viewKind)) return;
     const old = tab.view;
     const view = this.createView(kind);
@@ -1588,7 +1593,7 @@ class Browser {
     // an external favicon service would leak every visited hostname.
     const initialFavicon = '';
     const initialTitle = kind === 'settings' ? 'configurações' : kind === 'favorites' ? 'favoritos' : kind === 'extensions' ? 'extensões' : 'nova aba';
-    const initialUrl = kind === 'settings' ? 'zeos://settings' : kind === 'favorites' ? 'zeos://favoritos' : kind === 'extensions' ? 'zeos://extensions' : (target || '');
+    const initialUrl = kind === 'settings' ? 'zeos://settings' : kind === 'favorites' ? 'zeos://favoritos' : kind === 'extensions' ? 'zeos://extensions' : kind === 'newtab' ? 'zeos://nova-aba' : (target || '');
     const tab = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       kind,
@@ -1614,6 +1619,7 @@ class Browser {
     this.layout();
     if (kind === 'settings') view.webContents.loadFile(path.join(__dirname, 'settings', 'index.html'));
     else if (kind === 'favorites') view.webContents.loadFile(path.join(__dirname, 'favorites', 'index.html'));
+    else if (kind === 'newtab') view.webContents.loadFile(path.join(__dirname, 'newtab', 'index.html'));
     else if (kind === 'extensions') view.webContents.loadFile(path.join(__dirname, 'extensions', 'index.html'));
     else this.navigate(tab, target);
     this.sendState();
@@ -1843,6 +1849,18 @@ class Browser {
       tab.favicon = '';
       this.ensureViewKind(tab, 'settings');
       tab.view.webContents.loadFile(path.join(__dirname, 'settings', 'index.html'));
+      this.sendState();
+      this.saveSessionSoon();
+      return;
+    }
+    if (cleanTarget === 'zeos://nova-aba' || cleanTarget === 'zeos://newtab') {
+      tab.kind = 'newtab';
+      tab.title = 'nova aba';
+      tab.url = 'zeos://nova-aba';
+      tab.loading = false;
+      tab.favicon = '';
+      this.ensureViewKind(tab, 'newtab');
+      tab.view.webContents.loadFile(path.join(__dirname, 'newtab', 'index.html'));
       this.sendState();
       this.saveSessionSoon();
       return;
@@ -2455,6 +2473,16 @@ ipcMain.handle('browser:set-suggestions-open', (event, open) => {
 ipcMain.handle('omnibox:suggest', (_event, query) => {
   if (typeof query !== 'string') return [];
   return rankSuggestions(query, { history: settings.history || [], favorites, limit: 6 });
+});
+
+// Lets an internal page drive its own tab (the new tab page's search box).
+ipcMain.handle('page:navigate-self', (event, input) => {
+  if (typeof input !== 'string' || !input.trim()) return false;
+  const browser = pageOwners.get(event.sender.id);
+  const tab = browser?.tabs.find((candidate) => candidate.view.webContents.id === event.sender.id);
+  if (!browser || !tab) return false;
+  browser.navigate(tab, input.trim());
+  return true;
 });
 
 // Favorites

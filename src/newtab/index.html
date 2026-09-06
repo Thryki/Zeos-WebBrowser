@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Nova aba</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0b0b; --fg: #f5f5f5; --accent: #22c55e;
+    --panel: #181818; --panel-hover: #242424; --border: #2a2a2a;
+    font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 12vh 24px 60px; }
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-bottom: 26px; }
+  .brand h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand span { font-size: 12px; opacity: .4; }
+  form { width: 100%; max-width: 620px; display: flex; margin-bottom: 44px; }
+  #q {
+    flex: 1; height: 46px; padding: 0 18px; font: inherit; font-size: 14px; color: var(--fg);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; outline: none;
+    transition: border-color .15s;
+  }
+  #q:focus { border-color: color-mix(in srgb, var(--accent) 65%, transparent); }
+  section { width: 100%; max-width: 720px; margin-bottom: 34px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .4; margin-bottom: 12px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .card {
+    display: flex; align-items: center; gap: 9px; padding: 11px 12px; border-radius: 9px; cursor: pointer;
+    background: var(--panel); border: 1px solid transparent; text-align: left; color: inherit; font: inherit;
+    transition: border-color .12s, background .12s;
+  }
+  .card:hover { background: var(--panel-hover); border-color: var(--border); }
+  .card img, .card .letter { width: 16px; height: 16px; flex: none; border-radius: 3px; }
+  .card .letter { display: grid; place-items: center; background: var(--panel-hover); font-size: 9px; font-weight: 700; }
+  .card span.label { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rows { display: flex; flex-direction: column; gap: 2px; }
+  .row {
+    display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border-radius: 7px; cursor: pointer;
+    background: transparent; border: 0; text-align: left; color: inherit; font: inherit;
+  }
+  .row:hover { background: var(--panel); }
+  .row .t { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+  .row .u { font-size: 11px; opacity: .4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .empty { font-size: 12px; opacity: .35; }
+</style>
+</head>
+<body>
+  <div class="brand"><h1>Zeos</h1><span id="provider"></span></div>
+  <form id="search-form">
+    <input id="q" type="text" placeholder="Buscar ou digitar um endereço" autocomplete="off" spellcheck="false" autofocus />
+  </form>
+
+  <section id="fav-section" hidden>
+    <h2>Favoritos</h2>
+    <div class="grid" id="favs"></div>
+  </section>
+
+  <section id="hist-section" hidden>
+    <h2>Visitados recentemente</h2>
+    <div class="rows" id="hist"></div>
+  </section>
+<script>
+  const favsEl = document.getElementById('favs');
+  const histEl = document.getElementById('hist');
+  const favSection = document.getElementById('fav-section');
+  const histSection = document.getElementById('hist-section');
+  const providerEl = document.getElementById('provider');
+
+  function applyTheme(appearance = {}) {
+    const root = document.documentElement.style;
+    const map = { background: '--bg', foreground: '--fg', accent: '--accent', panel: '--panel', panelHover: '--panel-hover', border: '--border' };
+    for (const [key, prop] of Object.entries(map)) if (appearance[key]) root.setProperty(prop, appearance[key]);
+    if (appearance.font) root.fontFamily = '"' + appearance.font + '", "SF Mono", Menlo, Consolas, monospace';
+  }
+
+  function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } }
+
+  function open(url, newTab) {
+    if (window.zeosFavorites) window.zeosFavorites.open(url, Boolean(newTab));
+    else if (window.zeosSettings) window.zeosSettings.openUrl(url);
+  }
+
+  function renderFavorites(items) {
+    favsEl.replaceChildren();
+    favSection.hidden = !items.length;
+    for (const item of items.slice(0, 12)) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'card';
+      card.title = item.url;
+      if (item.favicon) {
+        const img = document.createElement('img');
+        img.src = item.favicon;
+        img.alt = '';
+        img.addEventListener('error', () => {
+          const letter = document.createElement('span');
+          letter.className = 'letter';
+          letter.textContent = hostOf(item.url)[0]?.toUpperCase() || '?';
+          img.replaceWith(letter);
+        });
+        card.appendChild(img);
+      } else {
+        const letter = document.createElement('span');
+        letter.className = 'letter';
+        letter.textContent = hostOf(item.url)[0]?.toUpperCase() || '?';
+        card.appendChild(letter);
+      }
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = item.title || hostOf(item.url);
+      card.appendChild(label);
+      card.addEventListener('click', () => open(item.url, false));
+      favsEl.appendChild(card);
+    }
+  }
+
+  function renderHistory(history) {
+    const seen = new Set();
+    const recent = [];
+    for (const item of history) {
+      if (seen.has(item.url)) continue;
+      seen.add(item.url);
+      recent.push(item);
+      if (recent.length >= 8) break;
+    }
+    histEl.replaceChildren();
+    histSection.hidden = !recent.length;
+    for (const item of recent) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'row';
+      const t = document.createElement('span');
+      t.className = 't';
+      t.textContent = item.title || hostOf(item.url);
+      const u = document.createElement('span');
+      u.className = 'u';
+      u.textContent = item.url;
+      row.append(t, u);
+      row.addEventListener('click', () => open(item.url, false));
+      histEl.appendChild(row);
+    }
+  }
+
+  document.getElementById('search-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = document.getElementById('q').value.trim();
+    if (!value) return;
+    if (window.zeosFavorites?.navigateSelf) window.zeosFavorites.navigateSelf(value);
+    else if (window.zeosSettings) window.zeosSettings.openUrl(value);
+  });
+
+  if (window.zeosSettings) {
+    const load = (settings) => {
+      applyTheme(settings.appearance);
+      providerEl.textContent = settings.searchProvider || '';
+      renderHistory(Array.isArray(settings.history) ? settings.history : []);
+    };
+    window.zeosSettings.get().then(load);
+    window.zeosSettings.onChanged(load);
+  }
+  if (window.zeosFavorites) {
+    window.zeosFavorites.list().then(renderFavorites);
+    window.zeosFavorites.onChanged(renderFavorites);
+  }
+</script>
+</body>
+</html>

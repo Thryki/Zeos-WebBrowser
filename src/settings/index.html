@@ -150,7 +150,11 @@
       <div class="section-title">
         <h1>Geral</h1>
       </div>
-      <label>Página inicial <input id="initial-page" type="url" placeholder="https://..." /></label>
+      <label>Página inicial <input id="initial-page" type="text" list="initial-page-options" placeholder="https://... ou zeos://nova-aba" /></label>
+      <datalist id="initial-page-options">
+        <option value="zeos://nova-aba">Nova aba do Zeos (favoritos e histórico)</option>
+        <option value="https://start.duckduckgo.com/">DuckDuckGo</option>
+      </datalist>
       <label>Buscador padrão
         <select id="search-provider">
           <option value="duckduckgo">DuckDuckGo</option>

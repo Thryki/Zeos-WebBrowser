@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('zeosFavorites', {
   add: (entry) => ipcRenderer.invoke('favorites:add', entry),
   remove: (url) => ipcRenderer.invoke('favorites:remove', url),
   open: (url, newTab) => ipcRenderer.invoke('favorites:open', { url, newTab: Boolean(newTab) }),
+  navigateSelf: (input) => ipcRenderer.invoke('page:navigate-self', input),
   onChanged: (handler) => {
     const listener = (_event, items) => handler(items);
     ipcRenderer.on('favorites:changed', listener);

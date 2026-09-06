@@ -62,6 +62,7 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
   - Visualização de atalhos e comandos de teclado configurados.
 - **Métricas do Sistema em Tempo Real:** Visualização do uso de CPU (%) e memória RAM (MB) do navegador diretamente no cabeçalho.
 - **Personalização Visual e Temas:** 16 paletas de cores (*Orca*, *Dracula*, *Nord*, *Tokyo Night*, etc.), ajuste de zoom global persistente e escolha de fontes monoespaçadas modernas.
+- **Página de nova aba:** Busca, favoritos e visitados recentemente em uma página local (defina `zeos://nova-aba` como página inicial nas Configurações).
 - **Favoritos:** Salve a página atual com `Ctrl + D` (ou pela estrela na barra de endereços) e gerencie tudo em uma página dedicada com busca.
 - **Histórico:** Página dedicada com busca e filtros por período.
 
