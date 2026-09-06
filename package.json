@@ -30,7 +30,8 @@
   "devDependencies": {
     "electron": "^40.0.0",
     "electron-builder": "^26.15.3",
-    "png2icons": "^2.0.1"
+    "png2icons": "^2.0.1",
+    "three": "^0.184.0"
   },
   "build": {
     "appId": "com.thryki.zeos",
