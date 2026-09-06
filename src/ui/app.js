@@ -872,6 +872,12 @@ window.addEventListener('keydown', (event) => {
     command(event.shiftKey ? 'reload-hard' : 'reload');
   }
 
+  if (modKey && event.shiftKey && key === 't') {
+    event.preventDefault();
+    command('reopen-closed-tab');
+    return;
+  }
+
   if (modKey && key === 'tab') {
     event.preventDefault();
     command(event.shiftKey ? 'cycle-previous' : 'cycle-next');

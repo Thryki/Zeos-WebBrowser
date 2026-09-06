@@ -88,7 +88,9 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
 | F5 / Ctrl + R | Recarregar página |
 | Ctrl + F5 / Ctrl + Shift + R | Recarregar ignorando cache |
 | Alt + ← / Alt + → | Voltar / Avançar no histórico |
-| Ctrl + + / Ctrl + - / Ctrl + 0 | Aumentar zoom / Diminuir zoom / Redefinir zoom (100%) |
+| Ctrl + + / Ctrl + - / Ctrl + 0 | Zoom da página (lembrado por site) |
+| Ctrl + Shift + T | Reabrir a última aba fechada |
+| Ctrl + F / F3 | Localizar na página |
 | F12 / Ctrl + Shift + I | Abrir Ferramentas do Desenvolvedor (DevTools) |
 
 ---

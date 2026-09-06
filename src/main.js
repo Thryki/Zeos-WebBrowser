@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS = {
     downloadMode: 'active-only'
   },
   permissions: { notifications: false, media: false },
+  siteZoom: {},
   extensions: [],
   history: []
 };
@@ -85,6 +86,18 @@ function getCurrentWorkspace() {
 const sessionDownloads = [];
 const activeDownloadItems = new Map();
 
+function hostOfUrl(url) {
+  try { return new URL(url).hostname; } catch { return ''; }
+}
+
+// Restores the zoom the user chose for this site, like other browsers do.
+function applySiteZoom(contents, url) {
+  if (!contents || contents.isDestroyed()) return;
+  const host = hostOfUrl(url);
+  const level = host && settings.siteZoom ? Number(settings.siteZoom[host]) || 0 : 0;
+  if (contents.getZoomLevel() !== level) contents.setZoomLevel(level);
+}
+
 function userFile(name) { return path.join(app.getPath('userData'), name); }
 function copy(value) { return JSON.parse(JSON.stringify(value)); }
 // State files are read through the previous good copy and never silently
@@ -122,6 +135,7 @@ function loadSettings() {
     appearance: { ...DEFAULT_SETTINGS.appearance, ...(stored.appearance || {}) },
     navbarButtons: { ...DEFAULT_SETTINGS.navbarButtons, ...(stored.navbarButtons || {}) },
     permissions: { ...DEFAULT_SETTINGS.permissions, ...(stored.permissions || {}) },
+    siteZoom: (stored.siteZoom && typeof stored.siteZoom === 'object' && !Array.isArray(stored.siteZoom)) ? stored.siteZoom : {},
     extensions: Array.isArray(stored.extensions) ? stored.extensions : [],
     history: Array.isArray(stored.history) ? stored.history.slice(0, 2000) : []
   };
@@ -176,10 +190,9 @@ function applyZoomToBrowser(browser) {
     browser.chrome.webContents.setZoomFactor(factor);
   }
   if (browser.tabs) {
+    // Pages keep their own per-site zoom; the setting scales the UI only.
     for (const tab of browser.tabs) {
-      if (!tab.view.webContents.isDestroyed()) {
-        tab.view.webContents.setZoomFactor(factor);
-      }
+      applySiteZoom(tab.view.webContents, tab.url);
     }
   }
   browser.layout();
@@ -1295,6 +1308,7 @@ class Browser {
     this.htmlFullscreen = false;
     this.findOpen = false;
     this.suggestionsOpen = false;
+    this.closedTabs = [];
     this.downloadsPanelOpen = false;
     this.sessionTimer = undefined;
     this.dragStartBounds = null;
@@ -1545,8 +1559,6 @@ class Browser {
         webSecurity: true
       }
     });
-    const zoomFactor = (settings.appearance?.zoomLevel || 100) / 100;
-    view.webContents.setZoomFactor(zoomFactor);
     setupSession(view.webContents.session);
     return view;
   }
@@ -1635,6 +1647,7 @@ class Browser {
         try {
           if (!prevUrl || new URL(prevUrl).hostname !== new URL(url).hostname) tab.favicon = '';
         } catch { tab.favicon = ''; }
+        applySiteZoom(contents, url);
         if (!getOwner().privateMode) addHistory(url, tab.title);
         const owner = getOwner();
         owner.sendState();
@@ -1711,6 +1724,21 @@ class Browser {
         menu.append(new MenuItem({ label: 'Copiar endereço do link', click: () => { const { clipboard } = require('electron'); clipboard.writeText(params.linkURL); } }));
         menu.append(new MenuItem({ type: 'separator' }));
       }
+      if (params.mediaType === 'image' && params.srcURL) {
+        menu.append(new MenuItem({ label: 'Abrir imagem em nova aba', click: () => owner.createWebTab(params.srcURL) }));
+        menu.append(new MenuItem({ label: 'Salvar imagem como...', click: () => contents.downloadURL(params.srcURL) }));
+        menu.append(new MenuItem({ label: 'Copiar endereço da imagem', click: () => { const { clipboard } = require('electron'); clipboard.writeText(params.srcURL); } }));
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+      if (params.selectionText && params.selectionText.trim()) {
+        const selection = params.selectionText.trim().slice(0, 200);
+        const label = selection.length > 24 ? `${selection.slice(0, 24)}…` : selection;
+        menu.append(new MenuItem({
+          label: `Pesquisar por "${label}"`,
+          click: () => owner.createWebTab(toNavigationTarget(selection, settings.searchProvider).url, true)
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
       if (params.editFlags.canCopy) menu.append(new MenuItem({ role: 'copy', label: 'Copiar' }));
       if (params.editFlags.canCut) menu.append(new MenuItem({ role: 'cut', label: 'Recortar' }));
       if (params.editFlags.canPaste) menu.append(new MenuItem({ role: 'paste', label: 'Colar' }));
@@ -1720,6 +1748,14 @@ class Browser {
       menu.append(new MenuItem({ label: 'Voltar', enabled: contents.navigationHistory.canGoBack(), click: () => contents.navigationHistory.goBack() }));
       menu.append(new MenuItem({ label: 'Avançar', enabled: contents.navigationHistory.canGoForward(), click: () => contents.navigationHistory.goForward() }));
       menu.append(new MenuItem({ label: 'Recarregar', click: () => contents.reload() }));
+      menu.append(new MenuItem({ type: 'separator' }));
+      if (tab.kind === 'web' && /^https?:\/\//i.test(tab.url || '')) {
+        menu.append(new MenuItem({
+          label: isFavorite(tab.url) ? 'Remover dos favoritos' : 'Adicionar aos favoritos',
+          click: () => owner.toggleFavorite()
+        }));
+      }
+      menu.append(new MenuItem({ label: 'Localizar na página', click: () => owner.chrome.webContents.send('browser:open-find') }));
       menu.append(new MenuItem({ type: 'separator' }));
       menu.append(new MenuItem({ label: 'Inspecionar elemento', click: () => contents.inspectElement(params.x, params.y) }));
 
@@ -1775,23 +1811,10 @@ class Browser {
       tab?.view.webContents.toggleDevTools();
       return;
     }
-    if (ctrl && (key === '=' || key === '+')) {
-      event.preventDefault();
-      const cur = settings.appearance?.zoomLevel || 100;
-      updateSettings({ appearance: { zoomLevel: Math.min(200, cur + 10) } });
-      return;
-    }
-    if (ctrl && key === '-') {
-      event.preventDefault();
-      const cur = settings.appearance?.zoomLevel || 100;
-      updateSettings({ appearance: { zoomLevel: Math.max(50, cur - 10) } });
-      return;
-    }
-    if (ctrl && key === '0') {
-      event.preventDefault();
-      updateSettings({ appearance: { zoomLevel: 100 } });
-      return;
-    }
+    if (ctrl && (key === '=' || key === '+')) { event.preventDefault(); this.zoomPage(1); return; }
+    if (ctrl && key === '-') { event.preventDefault(); this.zoomPage(-1); return; }
+    if (ctrl && key === '0') { event.preventDefault(); this.zoomPage(0); return; }
+    if (ctrl && input.shift && key === 't') { event.preventDefault(); this.reopenClosedTab(); return; }
     if (ctrl && key === 'tab') { event.preventDefault(); this.cycle(input.shift ? -1 : 1); return; }
     if (ctrl && /^[1-9]$/u.test(key)) { event.preventDefault(); const next = this.tabs[Number(key) - 1] || this.tabs.at(-1); if (next) this.selectTab(next.id); return; }
     if (input.alt && input.key === 'ArrowLeft' && tab?.view.webContents.navigationHistory.canGoBack()) { event.preventDefault(); tab.view.webContents.navigationHistory.goBack(); return; }
@@ -1957,10 +1980,6 @@ class Browser {
 
     pageOwners.set(tab.view.webContents.id, this);
 
-    const zoomFactor = (settings?.appearance?.zoomLevel || 100) / 100;
-    if (!tab.view.webContents.isDestroyed()) {
-      tab.view.webContents.setZoomFactor(zoomFactor);
-    }
 
     this.window.contentView.addChildView(tab.view);
     const insertIdx = (typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex <= this.tabs.length)
@@ -1993,6 +2012,11 @@ class Browser {
     const index = this.tabs.findIndex((tab) => tab.id === id);
     if (index < 0) return;
     const [tab] = this.tabs.splice(index, 1);
+    // Remember it so Ctrl+Shift+T can bring it back where it was.
+    if (tab.kind === 'web' && /^https?:\/\//i.test(tab.url || '')) {
+      this.closedTabs.push({ url: tab.url, pinned: Boolean(tab.pinned), index, workspaceId: tab.workspaceId || null });
+      if (this.closedTabs.length > 20) this.closedTabs.shift();
+    }
     this.window.contentView.removeChildView(tab.view);
     pageOwners.delete(tab.view.webContents.id);
     tab.view.webContents.close();
@@ -2009,6 +2033,41 @@ class Browser {
     this.saveSessionSoon();
   }
   saveSessionSoon() { if (!this.privateMode) { clearTimeout(this.sessionTimer); this.sessionTimer = setTimeout(() => this.saveSession(), 300); } }
+  // Page zoom is per site and independent from the UI scale in Settings.
+  // Ctrl +/-/0 used to resize the whole browser interface instead.
+  zoomPage(direction) {
+    const tab = this.active();
+    const contents = tab?.view.webContents;
+    if (!contents || contents.isDestroyed()) return;
+    const host = hostOfUrl(tab.url);
+    const current = contents.getZoomLevel();
+    const level = direction === 0 ? 0 : Math.max(-5, Math.min(7, current + direction));
+    contents.setZoomLevel(level);
+    if (host) {
+      if (!settings.siteZoom || typeof settings.siteZoom !== 'object') settings.siteZoom = {};
+      if (level === 0) delete settings.siteZoom[host];
+      else settings.siteZoom[host] = level;
+      saveSettingsSoon();
+    }
+  }
+  reopenClosedTab() {
+    const entry = this.closedTabs.pop();
+    if (!entry) return false;
+    const tab = this.createWebTab(entry.url, true);
+    if (!tab) return false;
+    if (entry.pinned) tab.pinned = true;
+    tab.workspaceId = entry.workspaceId;
+    const from = this.tabs.indexOf(tab);
+    const to = Math.min(Math.max(0, entry.index), this.tabs.length - 1);
+    if (from >= 0 && to !== from) {
+      this.tabs.splice(to, 0, ...this.tabs.splice(from, 1));
+    }
+    this.reorderPinnedTabs();
+    this.layout();
+    this.sendState();
+    this.saveSessionSoon();
+    return true;
+  }
   toggleFavorite() {
     const tab = this.active();
     if (!tab || tab.kind !== 'web' || !/^https?:\/\//i.test(tab.url || '')) return false;
@@ -2255,17 +2314,10 @@ class Browser {
     else if (command === 'cycle-previous') this.cycle(-1);
     else if (command === 'toggle-chrome') this.toggleChrome();
     else if (command === 'show-downloads') shell.openPath(app.getPath('downloads'));
-    else if (command === 'zoom-in') {
-      const cur = settings.appearance?.zoomLevel || 100;
-      updateSettings({ appearance: { zoomLevel: Math.min(200, cur + 10) } });
-    }
-    else if (command === 'zoom-out') {
-      const cur = settings.appearance?.zoomLevel || 100;
-      updateSettings({ appearance: { zoomLevel: Math.max(50, cur - 10) } });
-    }
-    else if (command === 'zoom-reset') {
-      updateSettings({ appearance: { zoomLevel: 100 } });
-    }
+    else if (command === 'zoom-in') this.zoomPage(1);
+    else if (command === 'zoom-out') this.zoomPage(-1);
+    else if (command === 'zoom-reset') this.zoomPage(0);
+    else if (command === 'reopen-closed-tab') this.reopenClosedTab();
     this.sendState();
   }
 }
