@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('zeosSettings', {
   clearHistory: () => ipcRenderer.invoke('settings:clear-history'),
   clearHistoryRange: (range) => ipcRenderer.invoke('settings:clear-history-range', range),
   removeHistoryItem: (url) => ipcRenderer.invoke('settings:remove-history-item', url),
+  removeHistoryItems: (urls) => ipcRenderer.invoke('settings:remove-history-items', urls),
   openUrl: (url) => ipcRenderer.invoke('settings:open-url', url),
   clearCookies: () => ipcRenderer.invoke('settings:clear-cookies'),
   extensions: {

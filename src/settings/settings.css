@@ -738,24 +738,13 @@ input[type="color"] {
 /* ==========================================================================
    HISTORY CONTROLS & LIST
    ========================================================================== */
-.history-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.history-search-box input {
-  width: 100%;
-}
-
+/* Filter chips kept from the previous layout. */
 .history-filter-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
 }
-
 .filter-chip {
   padding: 6px 12px;
   border-radius: 20px;
@@ -766,147 +755,16 @@ input[type="color"] {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-
 .filter-chip:hover {
   background: var(--panel-hover);
   color: #ffffff;
 }
-
 .filter-chip.active {
   background: color-mix(in srgb, var(--accent) 25%, var(--panel));
   border-color: var(--accent);
   color: #ffffff;
   font-weight: 600;
 }
-
-.history-list {
-  list-style: none;
-  max-height: 400px;
-  overflow-y: auto;
-  margin-top: 14px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel);
-  scrollbar-width: thin;
-}
-
-.history-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
-  gap: 10px;
-}
-
-.history-item:last-child {
-  border-bottom: 0;
-}
-
-.history-item:hover {
-  background: var(--panel-hover);
-}
-
-.history-main {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex: 1;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.history-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-decoration: none;
-}
-
-.history-title:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.history-url {
-  font-size: 11px;
-  color: color-mix(in srgb, var(--fg) 60%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.history-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 0 0 auto;
-}
-
-.history-time {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.history-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.history-tag {
-  font-size: 10px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  padding: 2px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.history-workspace {
-  font-size: 10px;
-  color: var(--muted);
-  margin-left: 8px;
-  background: color-mix(in srgb, var(--panel) 80%, transparent);
-  padding: 2px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.history-delete-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.history-delete-btn:hover {
-  background: rgba(220, 38, 38, 0.2);
-  color: #ef4444;
-}
-
-.history-empty {
-  padding: 30px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* ==========================================================================
-   MODAL DIALOG (CLEAR HISTORY)
-   ========================================================================== */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1038,3 +896,151 @@ input[type="color"] {
 }
 
 button .icon { pointer-events: none; }
+
+/* ==========================================================================
+   HISTORY
+   ========================================================================== */
+.history-selection {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.history-selection[hidden] { display: none; }
+
+.history-selection-count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.history-selection-actions { display: flex; gap: 8px; }
+
+.action-btn.ghost {
+  background: transparent;
+  border-color: var(--border);
+  opacity: 0.75;
+}
+
+.history-list {
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.history-day {
+  padding: 11px 14px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.42;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  transition: background 0.12s;
+}
+
+.history-item:last-child { border-bottom: 0; }
+.history-item:hover { background: var(--panel-hover); }
+
+.history-item.selected {
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+
+.history-tick {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.history-time {
+  flex: none;
+  width: 44px;
+  font-size: 11.5px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.history-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-host {
+  flex: 0 1 auto;
+  max-width: 30%;
+  font-size: 11.5px;
+  opacity: 0.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-open,
+.history-drop {
+  flex: none;
+  font: inherit;
+  font-size: 10.5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.history-item:hover .history-open,
+.history-item:hover .history-drop { opacity: 0.8; }
+
+.history-open:hover { background: var(--panel-hover); opacity: 1; }
+.history-drop:hover { background: #dc2626; border-color: #dc2626; color: #fff; opacity: 1; }
+
+.history-empty {
+  padding: 30px 14px;
+  text-align: center;
+  font-size: 12.5px;
+  opacity: 0.4;
+  background: var(--panel);
+}

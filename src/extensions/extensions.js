@@ -5,6 +5,8 @@ const searchInput = document.querySelector('#search-input');
 const searchClearBtn = document.querySelector('#search-clear');
 const devModeToggle = document.querySelector('#dev-mode-toggle');
 const devToolbar = document.querySelector('#dev-toolbar');
+// The promo box explains unpacked loading, so it belongs to developer mode.
+const devPromo = document.querySelector('.sidebar-promo');
 const loadUnpackedBtn = document.querySelector('#load-unpacked-btn');
 const packExtensionBtn = document.querySelector('#pack-extension-btn');
 const reloadAllBtn = document.querySelector('#reload-all-btn');
@@ -56,6 +58,11 @@ let toastTimer;
 let allExtensions = [];
 let currentFilter = '';
 let activeSelectedExt = null;
+
+function setDeveloperChrome(enabled) {
+  if (devToolbar) devToolbar.style.display = enabled ? 'block' : 'none';
+  if (devPromo) devPromo.hidden = !enabled;
+}
 
 function showToast(msg) {
   if (!toastEl || !toastMessage) return;
@@ -449,7 +456,7 @@ if (searchClearBtn) {
 if (devModeToggle) {
   devModeToggle.addEventListener('change', async () => {
     const isDev = devModeToggle.checked;
-    if (devToolbar) devToolbar.style.display = isDev ? 'block' : 'none';
+    setDeveloperChrome(isDev);
     if (window.zeosExtensions) {
       await window.zeosExtensions.setDevMode(isDev);
     }
@@ -580,7 +587,7 @@ if (window.zeosSettings) {
     if (s && s.appearance) applyThemeColors(s.appearance);
     if (s && typeof s.developerMode === 'boolean') {
       if (devModeToggle) devModeToggle.checked = s.developerMode;
-      if (devToolbar) devToolbar.style.display = s.developerMode ? 'block' : 'none';
+      setDeveloperChrome(s.developerMode);
     }
   });
 
@@ -588,7 +595,7 @@ if (window.zeosSettings) {
     if (s && s.appearance) applyThemeColors(s.appearance);
     if (s && typeof s.developerMode === 'boolean') {
       if (devModeToggle) devModeToggle.checked = s.developerMode;
-      if (devToolbar) devToolbar.style.display = s.developerMode ? 'block' : 'none';
+      setDeveloperChrome(s.developerMode);
     }
     loadExtensions();
   });

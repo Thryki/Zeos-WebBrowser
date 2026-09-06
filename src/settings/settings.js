@@ -252,92 +252,173 @@ function filterHistoryItems(history) {
   return items;
 }
 
+// History is grouped by day and entries can be ticked and acted on together,
+// the way a browser's own history page works. Drawn in Zeos's terminal idiom.
+const selectedUrls = new Set();
+
+function historyDayKey(timestamp) {
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function historyDayLabel(timestamp) {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const long = date.toLocaleDateString('pt-BR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+  if (historyDayKey(timestamp) === historyDayKey(today.getTime())) return `Hoje · ${long}`;
+  if (historyDayKey(timestamp) === historyDayKey(yesterday.getTime())) return `Ontem · ${long}`;
+  return long;
+}
+
+function historyHost(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+}
+
+function updateHistorySelection() {
+  const bar = document.querySelector('#history-selection');
+  const label = document.querySelector('#history-selection-count');
+  if (!bar || !label) return;
+  bar.hidden = selectedUrls.size === 0;
+  label.textContent = selectedUrls.size === 1
+    ? '1 item selecionado'
+    : `${selectedUrls.size} itens selecionados`;
+  for (const row of document.querySelectorAll('.history-item')) {
+    row.classList.toggle('selected', selectedUrls.has(row.dataset.url));
+  }
+}
+
 function renderHistory(history) {
   if (!historyList) return;
   historyList.replaceChildren();
 
   const filtered = filterHistoryItems(history);
+  // Entries filtered out of view can no longer be part of the selection.
+  const visible = new Set(filtered.map((item) => item.url));
+  for (const url of [...selectedUrls]) if (!visible.has(url)) selectedUrls.delete(url);
 
   if (filtered.length === 0) {
-    const emptyDiv = document.createElement('div');
-    emptyDiv.className = 'history-empty';
-    emptyDiv.textContent = currentSearchQuery || activeTimeFilter !== 'all'
-      ? 'Nenhum histórico encontrado para os filtros atuais.'
-      : 'Nenhum histórico recente registrado.';
-    historyList.appendChild(emptyDiv);
+    const empty = document.createElement('li');
+    empty.className = 'history-empty';
+    empty.textContent = currentSearchQuery || activeTimeFilter !== 'all'
+      ? 'Nenhum item corresponde aos filtros.'
+      : 'Nenhum histórico registrado.';
+    historyList.appendChild(empty);
+    updateHistorySelection();
     return;
   }
 
+  let lastDay = null;
   for (const item of filtered) {
+    const when = Number(item.lastVisitedAt || item.visitedAt) || 0;
+    const key = historyDayKey(when);
+
+    if (key !== lastDay) {
+      lastDay = key;
+      const heading = document.createElement('li');
+      heading.className = 'history-day';
+      heading.textContent = historyDayLabel(when);
+      historyList.appendChild(heading);
+    }
+
     const li = document.createElement('li');
     li.className = 'history-item';
+    li.dataset.url = item.url;
 
-    const mainDiv = document.createElement('div');
-    mainDiv.className = 'history-main';
-    mainDiv.title = `Clique para abrir: ${item.url}`;
-
-    const titleEl = document.createElement('span');
-    titleEl.className = 'history-title';
-    titleEl.textContent = item.title || item.url;
-
-    const urlEl = document.createElement('span');
-    urlEl.className = 'history-url';
-    urlEl.textContent = item.url;
-
-    mainDiv.append(titleEl, urlEl);
-
-    mainDiv.addEventListener('click', () => {
-      if (window.zeosSettings && window.zeosSettings.openUrl) {
-        window.zeosSettings.openUrl(item.url);
-      }
+    const tick = document.createElement('input');
+    tick.type = 'checkbox';
+    tick.className = 'history-tick';
+    tick.checked = selectedUrls.has(item.url);
+    tick.setAttribute('aria-label', `Selecionar ${item.title || item.url}`);
+    tick.addEventListener('change', () => {
+      if (tick.checked) selectedUrls.add(item.url);
+      else selectedUrls.delete(item.url);
+      updateHistorySelection();
     });
 
-    const metaDiv = document.createElement('div');
-    metaDiv.className = 'history-meta';
+    const time = document.createElement('span');
+    time.className = 'history-time';
+    time.textContent = when
+      ? new Date(when).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : '--:--';
 
-    if (item.visitedAt) {
-      const timeSpan = document.createElement('span');
-      timeSpan.className = 'history-time';
-      timeSpan.textContent = new Date(item.visitedAt).toLocaleString('pt-BR');
-      metaDiv.appendChild(timeSpan);
-    }
+    const mark = document.createElement('span');
+    mark.className = 'history-mark';
+    mark.textContent = (historyHost(item.url)[0] || '?').toUpperCase();
 
-    // Tags display
-    if (item.tags && item.tags.length > 0) {
-      const tagsSpan = document.createElement('span');
-      tagsSpan.className = 'history-tags';
-      item.tags.forEach((tag) => {
-        const tagEl = document.createElement('span');
-        tagEl.className = 'history-tag';
-        tagEl.textContent = `#${tag}`;
-        tagsSpan.appendChild(tagEl);
-      });
-      metaDiv.appendChild(tagsSpan);
-    }
+    const title = document.createElement('span');
+    title.className = 'history-title';
+    title.textContent = item.title || item.url;
+    title.title = item.url;
 
-    // Workspace info
-    if (item.workspaceId) {
-      const wsSpan = document.createElement('span');
-      wsSpan.className = 'history-workspace';
-      wsSpan.textContent = `WS${item.workspaceId}`;
-      metaDiv.appendChild(wsSpan);
-    }
+    const host = document.createElement('span');
+    host.className = 'history-host';
+    host.textContent = historyHost(item.url);
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'history-delete-btn';
-    deleteBtn.title = 'Remover este item do histórico';
-    deleteBtn.innerHTML = '✕';
-    deleteBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const updated = await window.zeosSettings.removeHistoryItem(item.url);
-      renderSettings(updated);
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'history-open';
+    open.title = 'Abrir';
+    open.textContent = 'abrir';
+    open.addEventListener('click', (event) => {
+      event.stopPropagation();
+      window.zeosSettings?.openUrl(item.url);
     });
-    metaDiv.appendChild(deleteBtn);
 
-    li.append(mainDiv, metaDiv);
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'history-drop';
+    drop.title = 'Remover do histórico';
+    drop.textContent = 'remover';
+    drop.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      selectedUrls.delete(item.url);
+      const next = await window.zeosSettings?.removeHistoryItem(item.url);
+      if (next) renderHistory(next.history || []);
+    });
+
+    li.append(tick, time, mark, title, host, open, drop);
+    li.addEventListener('click', (event) => {
+      if (event.target === tick) return;
+      // A click anywhere on the row toggles the tick, like a list of records.
+      tick.checked = !tick.checked;
+      tick.dispatchEvent(new Event('change'));
+    });
     historyList.appendChild(li);
   }
+
+  updateHistorySelection();
 }
+
+function wireHistorySelectionBar() {
+  const clear = document.querySelector('#history-selection-clear');
+  const openAll = document.querySelector('#history-selection-open');
+  const dropAll = document.querySelector('#history-selection-delete');
+
+  clear?.addEventListener('click', () => {
+    selectedUrls.clear();
+    for (const tick of document.querySelectorAll('.history-tick')) tick.checked = false;
+    updateHistorySelection();
+  });
+
+  openAll?.addEventListener('click', () => {
+    for (const url of selectedUrls) window.zeosSettings?.openUrl(url);
+  });
+
+  dropAll?.addEventListener('click', async () => {
+    if (!selectedUrls.size) return;
+    const urls = [...selectedUrls];
+    selectedUrls.clear();
+    const next = await window.zeosSettings?.removeHistoryItems(urls);
+    if (next) renderHistory(next.history || []);
+  });
+}
+
+wireHistorySelectionBar();
+
 
 function openHistoryClearModal() {
   isConfirmingClear = false;

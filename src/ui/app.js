@@ -73,6 +73,7 @@ function menu(name, event, extra = {}) {
 }
 
 function focusAddress() {
+  if (omniboxRow && omniboxRow.hidden) return;
   clearTimeout(hidingTimer);
   window.zeos.setChromeExpanded(true).then(() => {
     omnibox.focus();
@@ -535,7 +536,10 @@ function applyState(next) {
   renderExtensions(state.extensions);
 
   if (document.activeElement !== omnibox) {
-    omnibox.value = state.activeUrl || '';
+    // Internal pages hide the address row entirely; main shrinks the chrome to
+  // match, so leaving it visible here would float over the page.
+  if (omniboxRow) omniboxRow.hidden = Boolean(state.hideAddressBar);
+  omnibox.value = state.activeUrl || '';
   if (favoriteButton) {
     favoriteButton.classList.toggle('favorited', Boolean(state.activeFavorited));
     favoriteButton.disabled = !state.canFavorite;

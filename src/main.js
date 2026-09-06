@@ -1526,11 +1526,18 @@ class Browser {
     this.tabs = [];
   }
   active() { return this.tabs.find((tab) => tab.id === this.activeId); }
+  activeIsInternal() {
+    const tab = this.active();
+    return Boolean(tab && tab.kind !== 'web');
+  }
   layout() {
     if (this.window.isDestroyed()) return;
     const { width, height } = this.window.getContentBounds();
     const zoomFactor = (settings?.appearance?.zoomLevel || 100) / 100;
-    const baseTop = TAB_HEIGHT + (this.expanded ? ADDRESS_HEIGHT : 0) + (this.findOpen ? FIND_HEIGHT : 0);
+    // Zeos's own pages have nothing useful to type into the address bar, so it
+    // stays out of the way while one of them is in front.
+    const showAddress = this.expanded && !this.activeIsInternal();
+    const baseTop = TAB_HEIGHT + (showAddress ? ADDRESS_HEIGHT : 0) + (this.findOpen ? FIND_HEIGHT : 0);
     // A page in HTML5 fullscreen (video players, games) owns the whole window.
     const top = this.htmlFullscreen ? 0 : Math.round(baseTop * zoomFactor);
 
@@ -1640,6 +1647,7 @@ class Browser {
       activeUrl: active?.url || '',
       activeLoading: Boolean(active?.loading),
       activeFavorited: Boolean(active && active.kind === 'web' && isFavorite(active.url)),
+      hideAddressBar: this.activeIsInternal(),
       canFavorite: Boolean(active && active.kind === 'web' && /^https?:\/\//i.test(active.url || '')),
       canGoBack: Boolean(history?.canGoBack()),
       canGoForward: Boolean(history?.canGoForward()),
@@ -2739,6 +2747,16 @@ ipcMain.handle('settings:update', (_event, patch) => updateSettings(patch));
 ipcMain.handle('settings:clear-history', () => { settings.history = []; saveSettingsSoon(); notifySettings(); return { ...copy(settings), themes: THEMES }; });
 ipcMain.handle('settings:clear-history-range', (_event, range) => clearHistoryRange(range));
 ipcMain.handle('settings:remove-history-item', (_event, url) => removeHistoryItem(url));
+// Removing a multi-selection one call at a time would rewrite settings.json
+// once per entry and repaint the page in between.
+ipcMain.handle('settings:remove-history-items', (_event, urls) => {
+  if (!Array.isArray(urls) || !urls.length) return { ...copy(settings), themes: THEMES };
+  const doomed = new Set(urls.filter((url) => typeof url === 'string'));
+  settings.history = settings.history.filter((item) => !doomed.has(item.url));
+  saveSettingsSoon();
+  notifySettings();
+  return { ...copy(settings), themes: THEMES };
+});
 ipcMain.handle('settings:open-url', (_event, url) => {
   const firstBrowser = browsers.values().next().value;
   if (firstBrowser) {
