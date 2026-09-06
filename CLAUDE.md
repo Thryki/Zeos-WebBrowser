@@ -33,6 +33,11 @@ Extensões: `sourcePath` (pasta do usuário) NUNCA pode ser apagado; só o
 runner em tmpdir pertence ao app; falha de preparação nunca transforma
 `sourcePath` em alvo de deleção.
 
+Ciclo de vida: toda `BrowserWindow` oculta criada como infraestrutura (pontes
+de extensão, inspetores) conta para `window-all-closed`. Se sobreviver à última
+janela real, o processo fica vivo sem UI segurando o lock de instância única e
+o próximo start morre calado — destrua-as quando `browsers` esvaziar.
+
 Segurança: conteúdo remoto é não confiável e nunca recebe Node; não
 desabilitar `contextIsolation`/`sandbox` para "resolver" bugs; IPC
 privilegiado valida entrada; navegação iniciada por conteúdo web só resulta

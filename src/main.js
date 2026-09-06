@@ -1556,6 +1556,12 @@ class Browser {
     }
     if (!this.chrome.webContents.isDestroyed()) this.chrome.webContents.close();
     this.tabs = [];
+    // Extension bridges are hidden BrowserWindows: infrastructure, not windows
+    // the user opened. Electron counts them anyway, so leaving them alive after
+    // the last real window closes means window-all-closed never fires - the
+    // process lingers with no UI, still holding the single-instance lock, and
+    // the next launch quits silently against it.
+    if (!browsers.size) destroyExtensionBridges();
   }
   active() { return this.tabs.find((tab) => tab.id === this.activeId); }
   activeIsInternal() {
