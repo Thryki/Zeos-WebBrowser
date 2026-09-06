@@ -163,7 +163,7 @@ export function mount3D({ host, toggleButton, initial, enabled, onPersist }) {
   // The wordmark modelled in Blender from the logo's own vector outlines. The
   // bitmap-extruded one stays as a fallback so the tab is never empty if the
   // asset goes missing.
-  const FIT = { margin: 2.1, anchor: 0.19 };
+  const FIT = { margin: 1.45, anchor: 0.26 };
   lab.loadModelUrl('../assets/zeos-wordmark.glb')
     .catch(() => buildWordmarkWhenReady('ZEOS'))
     .then((model) => {
