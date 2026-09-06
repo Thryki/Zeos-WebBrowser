@@ -476,6 +476,15 @@ const ZEOS_EXTENSION_POLYFILL = `
   // chrome.contextMenus
   if (!self.chrome.contextMenus) {
     const menus = new Map();
+    self.__zeosContextMenus = () => Array.from(menus.entries()).map(([id, props]) => ({
+      id,
+      title: String(props.title || ''),
+      contexts: Array.isArray(props.contexts) ? props.contexts : ['page'],
+      enabled: props.enabled !== false,
+      visible: props.visible !== false,
+      parentId: props.parentId || null,
+      type: props.type || 'normal'
+    }));
     self.chrome.contextMenus = {
       onClicked: createEvent(),
       create(props, cb) {
@@ -643,6 +652,11 @@ const ZEOS_EXTENSION_POLYFILL = `
         sendResponse({ success: true });
         return true;
       }
+      // Zeos reads the registered items to draw them in the native page menu.
+      if (msg && msg.__zeos_get_context_menus) {
+        sendResponse({ menus: self.__zeosContextMenus ? self.__zeosContextMenus() : [] });
+        return true;
+      }
     });
   }
 })();
@@ -727,6 +741,9 @@ async function loadPreparedExtension(sourcePath) {
   extensionRunnerMap.set(sourcePath, { runnerPath, id: ext.id });
   extensionSourceMap.set(ext.id, sourcePath);
   invalidateExtensionsCache();
+  // The service worker registers its menus on install/startup; give it a
+  // moment, then cache them so the page menu can be built synchronously.
+  setTimeout(() => { refreshExtensionContextMenus(ext.id).catch(() => {}); }, 1500);
   return ext;
 }
 
@@ -1070,6 +1087,101 @@ async function getExtensionBridge(extensionId) {
   await win.loadURL(`chrome-extension://${extensionId}/manifest.json`);
   extensionBridges.set(extensionId, win);
   return win;
+}
+
+// Electron has no chrome.contextMenus, so the polyfill collects what an
+// extension registers and Zeos draws those entries in the native page menu.
+// The registry is cached because the menu has to be built synchronously.
+const extensionContextMenus = new Map();
+
+async function askExtension(extensionId, message) {
+  try {
+    const bridge = await getExtensionBridge(extensionId);
+    return await bridge.webContents.executeJavaScript(`new Promise((res) => {
+      try {
+        chrome.runtime.sendMessage(${JSON.stringify(message)}, (reply) => { void chrome.runtime.lastError; res(reply || null); });
+        setTimeout(() => res(null), 800);
+      } catch (e) { res(null); }
+    })`);
+  } catch {
+    return null;
+  }
+}
+
+async function refreshExtensionContextMenus(extensionId) {
+  const reply = await askExtension(extensionId, { __zeos_get_context_menus: true });
+  const menus = Array.isArray(reply?.menus) ? reply.menus : [];
+  if (menus.length) extensionContextMenus.set(extensionId, menus);
+  else extensionContextMenus.delete(extensionId);
+  return menus;
+}
+
+// Maps what the user right-clicked onto Chrome's context names.
+// Chrome shows a single entry inline and groups several under the extension
+// name; Zeos mirrors that.
+function buildExtensionMenuItems(browser, contents, tab, params) {
+  const active = contextsForParams(params);
+  const items = [];
+  for (const ext of getInstalledExtensions()) {
+    if (!ext.enabled) continue;
+    const registered = extensionContextMenus.get(ext.id) || [];
+    const matching = registered.filter((entry) => (
+      entry.visible !== false &&
+      entry.title &&
+      !entry.parentId &&
+      entry.contexts.some((context) => active.includes(context))
+    ));
+    if (!matching.length) continue;
+
+    const tabInfo = {
+      id: contents.isDestroyed() ? -1 : contents.id,
+      windowId: browser.window.id,
+      url: tab.url || '',
+      title: tab.title || '',
+      active: true
+    };
+    const toMenuItem = (entry) => new MenuItem({
+      label: entry.title,
+      enabled: entry.enabled !== false,
+      click: () => {
+        triggerExtensionContextMenu(ext.id, extensionMenuInfo(params, entry.id), tabInfo)
+          .then((reply) => { if (!reply) console.error('Extension context menu dispatch failed for', ext.id, entry.id); });
+      }
+    });
+
+    if (matching.length === 1) items.push(toMenuItem(matching[0]));
+    else items.push(new MenuItem({ label: ext.name, submenu: matching.map(toMenuItem) }));
+  }
+  return items;
+}
+
+function contextsForParams(params) {
+  const contexts = ['all'];
+  if (params.selectionText && params.selectionText.trim()) contexts.push('selection');
+  if (params.linkURL) contexts.push('link');
+  if (params.mediaType === 'image') contexts.push('image');
+  if (params.mediaType === 'video') contexts.push('video');
+  if (params.mediaType === 'audio') contexts.push('audio');
+  if (params.isEditable) contexts.push('editable');
+  if (!params.linkURL && params.mediaType === 'none' && !params.isEditable) contexts.push('page');
+  return contexts;
+}
+
+function extensionMenuInfo(params, menuItemId) {
+  return {
+    menuItemId,
+    selectionText: params.selectionText || '',
+    pageUrl: params.pageURL || '',
+    linkUrl: params.linkURL || '',
+    srcUrl: params.srcURL || '',
+    frameUrl: params.frameURL || '',
+    mediaType: params.mediaType === 'none' ? undefined : params.mediaType,
+    editable: Boolean(params.isEditable)
+  };
+}
+
+function triggerExtensionContextMenu(extensionId, info, tabInfo) {
+  return askExtension(extensionId, { __zeos_trigger_context_menu: true, info, tab: tabInfo });
 }
 
 async function triggerExtensionAction(extensionId, tabInfo) {
@@ -1762,10 +1874,23 @@ class Browser {
         }));
       }
       menu.append(new MenuItem({ label: 'Localizar na página', click: () => owner.chrome.webContents.send('browser:open-find') }));
+
+      const extensionItems = buildExtensionMenuItems(owner, contents, tab, params);
+      if (extensionItems.length) {
+        menu.append(new MenuItem({ type: 'separator' }));
+        for (const item of extensionItems) menu.append(item);
+      }
+
       menu.append(new MenuItem({ type: 'separator' }));
       menu.append(new MenuItem({ label: 'Inspecionar elemento', click: () => contents.inspectElement(params.x, params.y) }));
 
       menu.popup({ window: owner.window });
+
+      // Refresh the cache for the next right-click, so items registered late
+      // (or changed) still show up without a restart.
+      for (const ext of getInstalledExtensions()) {
+        if (ext.enabled) refreshExtensionContextMenus(ext.id).catch(() => {});
+      }
     });
   }
   keyboard(event, input) {
