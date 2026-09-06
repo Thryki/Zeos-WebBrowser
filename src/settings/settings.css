@@ -629,7 +629,10 @@ label.row:hover { background: var(--panel-hover); }
 /* ==========================================================================
    FORM CONTROLS & INPUTS
    ========================================================================== */
-label {
+/* Scoped to the modal and colour pickers: setting rows are laid out by .row
+   and must not inherit this stacked form style. */
+.modal-body label,
+.colors label {
   display: flex;
   flex-direction: column;
   gap: 6px;
