@@ -150,6 +150,10 @@
             <label title="Destaque"><input id="accent" type="color" /></label>
           </div>
         </div>
+        <label class="row">
+          <div class="row-text"><strong>Fundo 3D na nova aba</strong><span>Efeito ASCII animado atrás da página inicial. Desligado, aparece a logo estática.</span></div>
+          <div class="row-control"><input id="newtab-3d" type="checkbox" /></div>
+        </label>
       </div>
     </section>
 
@@ -180,8 +184,12 @@
           <div class="row-control"><input id="notifications" type="checkbox" /></div>
         </label>
         <label class="row">
-          <div class="row-text"><strong>Câmera e microfone</strong><span>Permitir acesso quando um site solicitar.</span></div>
-          <div class="row-control"><input id="media" type="checkbox" /></div>
+          <div class="row-text"><strong>Microfone</strong><span>Permitir captura de áudio quando um site solicitar.</span></div>
+          <div class="row-control"><input id="microphone" type="checkbox" /></div>
+        </label>
+        <label class="row">
+          <div class="row-text"><strong>Câmera</strong><span>Permitir captura de vídeo quando um site solicitar.</span></div>
+          <div class="row-control"><input id="camera" type="checkbox" /></div>
         </label>
       </div>
 
@@ -203,10 +211,6 @@
       <div class="panel-head">
         <h1>Histórico</h1>
         <div class="panel-actions">
-          <label class="select-all">
-            <input id="history-select-all" type="checkbox" />
-            <span>Selecionar tudo</span>
-          </label>
           <button id="history-clear-btn" type="button" class="action-btn danger-outline">Limpar dados...</button>
         </div>
       </div>

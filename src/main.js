@@ -77,7 +77,7 @@ const DEFAULT_SETTINGS = {
     showRam: true,
     downloadMode: 'active-only'
   },
-  permissions: { notifications: false, media: false },
+  permissions: { notifications: false, microphone: false, camera: false },
   siteZoom: {},
   extensions: [],
   history: []
@@ -160,6 +160,19 @@ function writeJson(name, data) {
   } catch (error) { console.error(`Error writing ${name}:`, error); }
 }
 
+// permissions.media used to cover both devices at once. A stored value carries
+// over to each of them so nobody silently loses access they had already given.
+function normalizePermissions(stored) {
+  const source = stored && typeof stored === 'object' ? stored : {};
+  const legacy = typeof source.media === 'boolean' ? source.media : false;
+  const pick = (key, fallback) => (typeof source[key] === 'boolean' ? source[key] : fallback);
+  return {
+    notifications: pick('notifications', DEFAULT_SETTINGS.permissions.notifications),
+    microphone: pick('microphone', legacy),
+    camera: pick('camera', legacy),
+  };
+}
+
 function loadSettings() {
   const stored = readJson('settings.json', {});
   const loaded = {
@@ -169,7 +182,7 @@ function loadSettings() {
     disabledExtensions: Array.isArray(stored.disabledExtensions) ? stored.disabledExtensions : [],
     appearance: { ...DEFAULT_SETTINGS.appearance, ...(stored.appearance || {}) },
     navbarButtons: { ...DEFAULT_SETTINGS.navbarButtons, ...(stored.navbarButtons || {}) },
-    permissions: { ...DEFAULT_SETTINGS.permissions, ...(stored.permissions || {}) },
+    permissions: normalizePermissions(stored.permissions),
     siteZoom: (stored.siteZoom && typeof stored.siteZoom === 'object' && !Array.isArray(stored.siteZoom)) ? stored.siteZoom : {},
     extensions: Array.isArray(stored.extensions) ? stored.extensions : [],
     newTabPins: sanitizePinList(stored.newTabPins),
@@ -313,7 +326,7 @@ function updateSettings(patch) {
   }
 
   if (patch.permissions && typeof patch.permissions === 'object') {
-    for (const key of ['notifications', 'media']) {
+    for (const key of ['notifications', 'microphone', 'camera']) {
       if (typeof patch.permissions[key] === 'boolean') settings.permissions[key] = patch.permissions[key];
     }
   }
@@ -1401,16 +1414,32 @@ function setupSession(browserSession) {
   // are granted; everything sensitive stays behind the explicit settings
   // toggles and is denied otherwise.
   const ALWAYS_ALLOWED = new Set(['fullscreen', 'pointerLock', 'clipboard-sanitized-write']);
-  const allowPermission = (permission) => (
-    ALWAYS_ALLOWED.has(permission) ||
-    (permission === 'notifications' && settings.permissions.notifications) ||
-    (permission === 'media' && settings.permissions.media)
-  );
-  browserSession.setPermissionRequestHandler((_contents, permission, callback) => callback(Boolean(allowPermission(permission))));
+  // Chromium asks for 'media' whether the site wants the microphone, the
+  // camera or both, and says which in the details. Splitting on that is what
+  // lets the two switches mean different things.
+  const allowPermission = (permission, details) => {
+    if (ALWAYS_ALLOWED.has(permission)) return true;
+    if (permission === 'notifications') return settings.permissions.notifications;
+    if (permission !== 'media') return false;
+
+    const kinds = Array.isArray(details && details.mediaTypes)
+      ? details.mediaTypes
+      : (details && details.mediaType ? [details.mediaType] : []);
+    const both = settings.permissions.microphone && settings.permissions.camera;
+    if (!kinds.length) return both;
+    // A request naming both devices is granted only if both are allowed:
+    // one prompt, one answer, and no half-granted stream.
+    return kinds.every((kind) => {
+      if (kind === 'audio') return settings.permissions.microphone;
+      if (kind === 'video') return settings.permissions.camera;
+      return both;
+    });
+  };
+  browserSession.setPermissionRequestHandler((_contents, permission, callback, details) => callback(Boolean(allowPermission(permission, details))));
   // Without a check handler Electron reports every permission as granted, so
   // permissions.query()/Notification.permission would contradict the answers
   // above and device labels would leak from enumerateDevices().
-  browserSession.setPermissionCheckHandler((_contents, permission) => Boolean(allowPermission(permission)));
+  browserSession.setPermissionCheckHandler((_contents, permission, _origin, details) => Boolean(allowPermission(permission, details)));
 
   browserSession.on('will-download', (_event, item, source) => {
     const downloadId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

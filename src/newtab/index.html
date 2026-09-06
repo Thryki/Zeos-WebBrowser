@@ -80,6 +80,7 @@
   }
   .chip:hover { background: var(--panel-hover); }
   .chip .icon { opacity: .55; }
+  #provider-icon { display: grid; place-items: center; opacity: .8; }
   .chip select {
     font: inherit; font-size: 11.5px; color: var(--fg);
     background: transparent; border: 0; outline: none; cursor: pointer;
@@ -368,7 +369,7 @@
     </div>
     <div class="prompt-foot">
       <label class="chip" id="provider-chip">
-        <span class="icon" data-icon="search"></span>
+        <span class="icon" id="provider-icon"></span>
         <select id="provider">
           <option value="duckduckgo">DuckDuckGo</option>
           <option value="google">Google</option>
@@ -729,7 +730,16 @@
     else if (window.zeosSettings) window.zeosSettings.openUrl(value);
   });
 
+  // Brand mark when the engine has one; Bing falls back to the generic glyph,
+  // because simple-icons dropped Microsoft brands over trademark policy.
+  function renderProviderIcon() {
+    const holder = document.getElementById('provider-icon');
+    if (!holder) return;
+    holder.innerHTML = brandMarkup(providerEl.value, 13) || iconMarkup('search', 14);
+  }
+
   providerEl.addEventListener('change', () => {
+    renderProviderIcon();
     window.zeosSettings?.update({ searchProvider: providerEl.value });
   });
 
@@ -749,6 +759,7 @@
     window.zeosFavorites?.navigateSelf('zeos://historico');
   });
 
+  renderProviderIcon();
   greet();
   setInterval(greet, 30000);
 
@@ -756,6 +767,7 @@
     const load = (settings) => {
       applyTheme(settings.appearance);
       if (settings.searchProvider) providerEl.value = settings.searchProvider;
+      renderProviderIcon();
       renderHistory(Array.isArray(settings.history) ? settings.history : []);
       pins = Array.isArray(settings.newTabPins) ? settings.newTabPins : [];
       const stored = Array.isArray(settings.newTabPinList) ? settings.newTabPinList : [];

@@ -25,7 +25,9 @@ const fontSelect = document.querySelector('#font');
 const initialPageInput = document.querySelector('#initial-page');
 const searchProviderSelect = document.querySelector('#search-provider');
 const notificationsCheck = document.querySelector('#notifications');
-const mediaCheck = document.querySelector('#media');
+const microphoneCheck = document.querySelector('#microphone');
+const cameraCheck = document.querySelector('#camera');
+const newTab3DCheck = document.querySelector('#newtab-3d');
 const clearCookiesBtn = document.querySelector('#clear-cookies');
 
 // Chrome Extensions elements
@@ -296,13 +298,7 @@ function updateHistorySelection() {
   for (const row of rows) {
     row.classList.toggle('selected', selectedUrls.has(row.dataset.url));
   }
-  // The master tick mirrors the list: all, none, or partially taken.
-  const master = document.querySelector('#history-select-all');
-  if (master) {
-    const taken = rows.filter((row) => selectedUrls.has(row.dataset.url)).length;
-    master.checked = rows.length > 0 && taken === rows.length;
-    master.indeterminate = taken > 0 && taken < rows.length;
-  }
+
 }
 
 function renderHistory(history) {
@@ -421,16 +417,6 @@ function renderHistory(history) {
 }
 
 function wireHistorySelectionBar() {
-  const selectAll = document.querySelector('#history-select-all');
-  selectAll?.addEventListener('change', () => {
-    const rows = document.querySelectorAll('.history-item');
-    for (const row of rows) {
-      if (selectAll.checked) selectedUrls.add(row.dataset.url);
-      else selectedUrls.delete(row.dataset.url);
-    }
-    for (const tick of document.querySelectorAll('.history-tick')) tick.checked = selectAll.checked;
-    updateHistorySelection();
-  });
 
   document.querySelector('#history-clear-btn')?.addEventListener('click', openHistoryClearModal);
 
@@ -510,7 +496,11 @@ function renderSettings(settings) {
   if (searchProviderSelect) searchProviderSelect.value = settings.searchProvider || 'duckduckgo';
 
   if (notificationsCheck) notificationsCheck.checked = Boolean(perm.notifications);
-  if (mediaCheck) mediaCheck.checked = Boolean(perm.media);
+  if (microphoneCheck) microphoneCheck.checked = Boolean(perm.microphone);
+  if (cameraCheck) cameraCheck.checked = Boolean(perm.camera);
+  // newTab3D is a top-level key, not part of appearance: the appearance
+  // whitelist in the main process would drop a boolean placed there.
+  if (newTab3DCheck) newTab3DCheck.checked = settings.newTab3D !== false;
 
   renderHistory(settings.history);
   loadExtensionsList();
@@ -591,8 +581,16 @@ if (window.zeosSettings) {
     window.zeosSettings.update({ permissions: { notifications: notificationsCheck.checked } });
   });
 
-  mediaCheck?.addEventListener('change', () => {
-    window.zeosSettings.update({ permissions: { media: mediaCheck.checked } });
+  microphoneCheck?.addEventListener('change', () => {
+    window.zeosSettings.update({ permissions: { microphone: microphoneCheck.checked } });
+  });
+
+  cameraCheck?.addEventListener('change', () => {
+    window.zeosSettings.update({ permissions: { camera: cameraCheck.checked } });
+  });
+
+  newTab3DCheck?.addEventListener('change', () => {
+    window.zeosSettings.update({ newTab3D: newTab3DCheck.checked });
   });
 
   clearCookiesBtn?.addEventListener('click', async () => {
