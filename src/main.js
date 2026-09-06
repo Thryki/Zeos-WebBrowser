@@ -2287,7 +2287,7 @@ class Browser {
     } else if (menu === 'tabs-overflow') {
       Menu.buildFromTemplate(
         this.tabs.map((tab) => ({
-          label: `${tab.pinned ? '📌 ' : ''}${tab.title || 'nova aba'}`,
+          label: `${tab.pinned ? '• ' : ''}${tab.title || 'nova aba'}`,
           type: 'radio',
           checked: tab.id === this.activeId,
           click: () => this.selectTab(tab.id)
@@ -2764,7 +2764,7 @@ ipcMain.handle('workspaces:create', (_event, { name, icon }) => {
   const newWorkspace = {
     id,
     name: name || `Workspace ${workspaces.size + 1}`,
-    icon: icon || '📁',
+    icon: icon || '',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     tabs: [],

@@ -1005,7 +1005,7 @@ function renderSuggestions() {
     if (item.favorite) {
       const star = document.createElement('span');
       star.className = 'suggestion-star';
-      star.textContent = '★';
+      star.innerHTML = iconMarkup('star', 11);
       row.appendChild(star);
     }
 

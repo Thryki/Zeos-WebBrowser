@@ -97,7 +97,7 @@
 
       <div class="sidebar-promo">
         <div class="promo-header">
-          <span class="promo-icon">💡</span>
+          <span class="promo-icon"><svg class="icon icon-lightbulb" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /> <path d="M9 18h6" /> <path d="M10 22h4" /></svg></span>
           <strong>Desenvolvimento de Extensões</strong>
         </div>
         <p>O Zeos suporta Manifest V2 e Manifest V3 com Service Workers nativos, popups, páginas de opções e permissões isoladas.</p>
@@ -129,7 +129,7 @@
 
         <!-- EMPTY STATE -->
         <div id="extensions-empty" class="empty-state" style="display: none;">
-          <div class="empty-icon">🧩</div>
+          <div class="empty-icon"><svg class="icon icon-puzzle" xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg></div>
           <h3>Nenhuma extensão encontrada</h3>
           <p id="empty-message">Carregue uma pasta com manifest.json ou explore a Chrome Web Store para adicionar funcionalidades.</p>
           <div class="empty-actions">
@@ -198,8 +198,8 @@
       </div>
 
       <div class="modal-footer">
-        <button id="modal-open-folder-btn" class="dev-action-btn">📂 Abrir no Explorer</button>
-        <button id="modal-open-options-btn" class="dev-action-btn">⚙️ Página de opções</button>
+        <button id="modal-open-folder-btn" class="dev-action-btn"><svg class="icon icon-folder-open" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" /></svg> Abrir no Explorer</button>
+        <button id="modal-open-options-btn" class="dev-action-btn"><svg class="icon icon-settings" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg> Página de opções</button>
         <button id="modal-close-btn" class="dev-action-btn primary-action">Fechar</button>
       </div>
     </div>
@@ -234,6 +234,7 @@
     <span id="toast-message"></span>
   </div>
 
+  <script src="../icons.js"></script>
   <script src="extensions.js"></script>
 </body>
 </html>

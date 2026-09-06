@@ -839,3 +839,12 @@ body.platform-darwin .window-controls {
 }
 
 .suggestion-star { flex: none; color: var(--accent); font-size: 10px; }
+
+/* Lucide icons render inline and inherit the text colour. */
+.icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex: none;
+}
+
+button .icon { pointer-events: none; }

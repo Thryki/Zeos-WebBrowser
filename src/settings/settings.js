@@ -78,7 +78,7 @@ function renderThemes(themes, currentThemeId) {
     nameEl.textContent = theme.name;
     const checkEl = document.createElement('span');
     checkEl.className = 'theme-check';
-    checkEl.textContent = '✓';
+    checkEl.innerHTML = iconMarkup('check', 12);
     nameEl.appendChild(checkEl);
 
     const descEl = document.createElement('div');

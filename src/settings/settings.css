@@ -1020,3 +1020,12 @@ input[type="color"] {
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--panel) 80%, var(--bg));
 }
+
+/* Lucide icons render inline and inherit the text colour. */
+.icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex: none;
+}
+
+button .icon { pointer-events: none; }

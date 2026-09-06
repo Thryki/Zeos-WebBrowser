@@ -969,3 +969,12 @@ body {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   vertical-align: middle;
 }
+
+/* Lucide icons render inline and inherit the text colour. */
+.icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex: none;
+}
+
+button .icon { pointer-events: none; }
