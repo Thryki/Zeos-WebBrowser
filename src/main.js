@@ -24,6 +24,8 @@ const DEFAULT_SETTINGS = {
   searchProvider: 'duckduckgo',
   developerMode: true,
   disabledExtensions: [],
+  newTab3D: true,
+  newTabEffect: null,
   appearance: {
     themeId: 'orca',
     background: '#0b0b0b',
@@ -216,6 +218,18 @@ function notifySettings() {
 function updateSettings(patch) {
   if (!patch || typeof patch !== 'object') return { ...copy(settings), themes: THEMES };
   if (SEARCH_PROVIDERS[patch.searchProvider]) settings.searchProvider = patch.searchProvider;
+  if (typeof patch.newTab3D === 'boolean') settings.newTab3D = patch.newTab3D;
+  // The new tab's 3D panel round-trips its own effect state. It is renderer
+  // data with no meaning here, so it is size-capped and re-parsed rather than
+  // trusted as an object.
+  if (patch.newTabEffect && typeof patch.newTabEffect === 'object' && !Array.isArray(patch.newTabEffect)) {
+    try {
+      const encoded = JSON.stringify(patch.newTabEffect);
+      if (encoded && encoded.length <= 8192) settings.newTabEffect = JSON.parse(encoded);
+    } catch {
+      // A value that will not serialise is simply not stored.
+    }
+  }
   if (typeof patch.initialPage === 'string' && patch.initialPage.trim() && patch.initialPage.length < 2048) {
     const wanted = patch.initialPage.trim();
     settings.initialPage = /^zeos:\/\/(nova-aba|newtab)$/i.test(wanted)
@@ -2270,6 +2284,12 @@ class Browser {
         { label: 'Configurações', accelerator: 'CmdOrCtrl+,', click: () => this.createSpecialTab('settings') },
         { type: 'separator' },
         { label: 'Personalizar barra de navegação...', click: () => this.createSpecialTab('settings') },
+        {
+          label: 'Nova aba com three.js',
+          type: 'checkbox',
+          checked: settings.newTab3D !== false,
+          click: () => updateSettings({ newTab3D: settings.newTab3D === false })
+        },
         { type: 'separator' },
         { label: 'Ferramentas de desenvolvedor', accelerator: 'F12', click: () => this.active()?.view.webContents.toggleDevTools() }
       ]);
