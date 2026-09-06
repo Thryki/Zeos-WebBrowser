@@ -62,7 +62,8 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
   - Visualização de atalhos e comandos de teclado configurados.
 - **Métricas do Sistema em Tempo Real:** Visualização do uso de CPU (%) e memória RAM (MB) do navegador diretamente no cabeçalho.
 - **Personalização Visual e Temas:** 16 paletas de cores (*Orca*, *Dracula*, *Nord*, *Tokyo Night*, etc.), ajuste de zoom global persistente e escolha de fontes monoespaçadas modernas.
-- **Histórico:** Página dedicada com busca e filtros por período. (A página de Favoritos ainda está em desenvolvimento.)
+- **Favoritos:** Salve a página atual com `Ctrl + D` (ou pela estrela na barra de endereços) e gerencie tudo em uma página dedicada com busca.
+- **Histórico:** Página dedicada com busca e filtros por período.
 
 ---
 
@@ -82,7 +83,8 @@ O **Zeos WebBrowser** é um navegador desktop desenvolvido para quem valoriza **
 | Ctrl + J | Abrir / fechar painel de downloads |
 | Ctrl + Shift + E | Abrir Gerenciador de Extensões (`zeos://extensions`) |
 | Ctrl + H ou Ctrl + , | Abrir Configurações |
-| Ctrl + D ou Ctrl + B | Abrir Favoritos |
+| Ctrl + D | Salvar / remover a página dos favoritos |
+| Ctrl + B ou Ctrl + Shift + D | Abrir a página de Favoritos |
 | F5 / Ctrl + R | Recarregar página |
 | Ctrl + F5 / Ctrl + Shift + R | Recarregar ignorando cache |
 | Alt + ← / Alt + → | Voltar / Avançar no histórico |

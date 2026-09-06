@@ -1,83 +1,164 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>favoritos</title>
-  <style>
-    :root {
-      --bg: #0b0b0b;
-      --fg: #f5f5f5;
-      --accent: #22c55e;
-      --panel: #181818;
-      --border: #2a2a2a;
-      font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
-      color: var(--fg);
-      background: var(--bg);
-    }
-    body {
-      margin: 0;
-      padding: 40px 24px;
-      background: var(--bg);
-      color: var(--fg);
-    }
-    main {
-      max-width: 760px;
-      margin: auto;
-      border-top: 1px solid var(--accent);
-      padding-top: 24px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-    .brand-logo {
-      width: 38px;
-      height: 20px;
-      display: block;
-      fill: var(--accent);
-    }
-    h1 {
-      margin: 0;
-      font-size: 18px;
-      color: #ffffff;
-    }
-    p {
-      color: color-mix(in srgb, var(--fg) 80%, transparent);
-      line-height: 1.6;
-      font-size: 13.5px;
-    }
-  </style>
+<meta charset="utf-8" />
+<title>Favoritos — Zeos</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0b0b; --fg: #f5f5f5; --accent: #22c55e;
+    --panel: #181818; --panel-hover: #242424; --border: #2a2a2a;
+    font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--fg); min-height: 100vh; padding: 32px 28px 60px; }
+  header { max-width: 880px; margin: 0 auto 22px; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .sub { font-size: 12px; opacity: .55; }
+  .toolbar { max-width: 880px; margin: 0 auto 18px; display: flex; gap: 10px; }
+  #search {
+    flex: 1; height: 34px; padding: 0 12px; font: inherit; font-size: 13px;
+    color: var(--fg); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; outline: none;
+  }
+  #search:focus { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+  ul { max-width: 880px; margin: 0 auto; list-style: none; }
+  li {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid transparent; transition: background .12s, border-color .12s;
+  }
+  li:hover { background: var(--panel); border-color: var(--border); }
+  .fav-icon { width: 16px; height: 16px; flex: none; border-radius: 3px; object-fit: contain; opacity: .9; }
+  .fav-icon-fallback {
+    width: 16px; height: 16px; flex: none; border-radius: 3px; display: grid; place-items: center;
+    background: var(--panel-hover); font-size: 9px; font-weight: 700; opacity: .8;
+  }
+  .fav-text { flex: 1; min-width: 0; cursor: pointer; }
+  .fav-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fav-url { font-size: 11px; opacity: .45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .fav-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .12s; }
+  li:hover .fav-actions { opacity: 1; }
+  .fav-actions button {
+    font: inherit; font-size: 11px; cursor: pointer; padding: 4px 10px; border-radius: 6px;
+    color: var(--fg); background: transparent; border: 1px solid var(--border);
+  }
+  .fav-actions button:hover { background: var(--panel-hover); }
+  .fav-actions .danger:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .empty { max-width: 880px; margin: 60px auto; text-align: center; opacity: .5; font-size: 13px; line-height: 1.7; }
+  kbd {
+    font: inherit; font-size: 11px; padding: 1px 6px; border-radius: 4px;
+    background: var(--panel); border: 1px solid var(--border);
+  }
+</style>
 </head>
 <body>
-  <main>
-    <div class="brand">
-      <svg class="brand-logo" viewBox="0 0 7906 4095" aria-hidden="true">
-        <path d="M2329.41 0H3952.94V564.706H2894.12V1764.71H3952.94V2329.41H2894.12V3529.41H3952.94V4094.12H2329.41V3176.47V564.706V0Z" fill="currentColor"/>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M4305.88 4094.12H5576.47V3741.18H5929.41V352.941H5576.47V0H4305.88V352.941H3952.94V1764.71V2329.41V3741.18H4305.88V4094.12ZM5364.71 564.706V3529.41H4517.65V564.706H5364.71Z" fill="currentColor"/>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M7200 2117.65V1764.71H6847.06V1411.77H6494.12V564.707H7341.18V1270.59H7905.88V352.942H7552.94V0.000976562H6282.35V352.942L5929.41 352.941V1623.53H6282.35V1976.47H6635.29V2329.41H6988.24V2682.35H7341.18V3529.41H6494.12V2470.59H5929.41V3741.18L6282.35 3741.18V4094.12H7552.94V3741.18H7905.88V2470.59H7552.94V2117.65H7200Z" fill="currentColor"/>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0V917.647H564.706V564.706H1588.24V705.882H1411.76V1058.82H1235.29V1411.76H1058.82V1764.71H882.353V2117.65H705.882V2470.59H529.412V2823.53H352.941V3176.47H176.471V3529.41H0V4094.12H2329.41V3176.47H1764.71V3529.41H741.177V3388.24H917.647V3035.29H1094.12V2682.35H1270.59V2329.41H1447.06V1976.47H1623.53V1623.53H1800V1270.59H1976.47V917.647H2152.94V564.706H2329.41V0H0Z" fill="currentColor"/>
-      </svg>
-      <h1>zeos://favoritos</h1>
-    </div>
-    <p>Os favoritos aparecerão aqui. Esta primeira versão mantém o menu de acesso preparado, sem coleta automática de dados de navegação.</p>
-  </main>
-  <script>
-    if (window.zeosSettings) {
-      function applyTheme(s) {
-        if (!s || !s.appearance) return;
-        const root = document.documentElement.style;
-        root.setProperty('--bg', s.appearance.background || '#0b0b0b');
-        root.setProperty('--fg', s.appearance.foreground || '#f5f5f5');
-        root.setProperty('--accent', s.appearance.accent || '#22c55e');
-        root.setProperty('--panel', s.appearance.panel || '#181818');
-        root.setProperty('--border', s.appearance.border || '#2a2a2a');
-        root.fontFamily = `"${s.appearance.font || 'IBM Plex Mono'}", Consolas, monospace`;
+  <header>
+    <h1>Favoritos</h1>
+    <p class="sub" id="count"></p>
+  </header>
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="Buscar nos favoritos" autocomplete="off" spellcheck="false" />
+  </div>
+  <ul id="list"></ul>
+  <p class="empty" id="empty" hidden>
+    Nenhum favorito ainda.<br />
+    Use <kbd>Ctrl</kbd> + <kbd>D</kbd> em uma página para salvá-la aqui.
+  </p>
+<script>
+  const listEl = document.getElementById('list');
+  const emptyEl = document.getElementById('empty');
+  const countEl = document.getElementById('count');
+  const searchEl = document.getElementById('search');
+  let items = [];
+
+  function applyTheme(appearance = {}) {
+    const root = document.documentElement.style;
+    const map = { background: '--bg', foreground: '--fg', accent: '--accent', panel: '--panel', panelHover: '--panel-hover', border: '--border' };
+    for (const [key, prop] of Object.entries(map)) if (appearance[key]) root.setProperty(prop, appearance[key]);
+    if (appearance.font) root.fontFamily = '"' + appearance.font + '", "SF Mono", Menlo, Consolas, monospace';
+  }
+
+  function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } }
+
+  function render() {
+    const query = searchEl.value.trim().toLowerCase();
+    const visible = query
+      ? items.filter((item) => (item.title + ' ' + item.url).toLowerCase().includes(query))
+      : items;
+
+    listEl.replaceChildren();
+    emptyEl.hidden = items.length > 0;
+    countEl.textContent = items.length
+      ? `${items.length} ${items.length === 1 ? 'página salva' : 'páginas salvas'}${query ? ` · ${visible.length} correspondendo` : ''}`
+      : '';
+
+    for (const item of visible) {
+      const li = document.createElement('li');
+
+      if (item.favicon) {
+        const img = document.createElement('img');
+        img.className = 'fav-icon';
+        img.src = item.favicon;
+        img.alt = '';
+        img.addEventListener('error', () => {
+          const fallback = document.createElement('span');
+          fallback.className = 'fav-icon-fallback';
+          fallback.textContent = hostOf(item.url)[0]?.toUpperCase() || '?';
+          img.replaceWith(fallback);
+        });
+        li.appendChild(img);
+      } else {
+        const fallback = document.createElement('span');
+        fallback.className = 'fav-icon-fallback';
+        fallback.textContent = hostOf(item.url)[0]?.toUpperCase() || '?';
+        li.appendChild(fallback);
       }
-      window.zeosSettings.get().then(applyTheme);
-      window.zeosSettings.onChanged(applyTheme);
+
+      const text = document.createElement('div');
+      text.className = 'fav-text';
+      const title = document.createElement('div');
+      title.className = 'fav-title';
+      title.textContent = item.title || item.url;
+      const url = document.createElement('div');
+      url.className = 'fav-url';
+      url.textContent = item.url;
+      text.append(title, url);
+      text.addEventListener('click', () => window.zeosFavorites.open(item.url, false));
+
+      const actions = document.createElement('div');
+      actions.className = 'fav-actions';
+      const newTabBtn = document.createElement('button');
+      newTabBtn.type = 'button';
+      newTabBtn.textContent = 'Nova aba';
+      newTabBtn.addEventListener('click', () => window.zeosFavorites.open(item.url, true));
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'danger';
+      removeBtn.textContent = 'Remover';
+      removeBtn.addEventListener('click', async () => {
+        await window.zeosFavorites.remove(item.url);
+      });
+      actions.append(newTabBtn, removeBtn);
+
+      li.append(text, actions);
+      listEl.appendChild(li);
     }
-  </script>
+  }
+
+  async function load() {
+    if (!window.zeosFavorites) return;
+    items = await window.zeosFavorites.list();
+    render();
+  }
+
+  searchEl.addEventListener('input', render);
+  if (window.zeosFavorites) {
+    window.zeosFavorites.onChanged((next) => { items = next; render(); });
+  }
+  if (window.zeosSettings) {
+    window.zeosSettings.get().then((settings) => applyTheme(settings.appearance));
+    window.zeosSettings.onChanged((settings) => applyTheme(settings.appearance));
+  }
+  load();
+</script>
 </body>
 </html>

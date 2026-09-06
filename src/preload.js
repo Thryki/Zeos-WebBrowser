@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('zeos', {
     ipcRenderer.on('browser:system-stats', listener);
     return () => ipcRenderer.removeListener('browser:system-stats', listener);
   },
+  toggleFavorite: () => ipcRenderer.invoke('favorites:toggle-active'),
   find: (text, options) => ipcRenderer.invoke('browser:find', { text, options }),
   stopFind: () => ipcRenderer.invoke('browser:stop-find'),
   setFindOpen: (open) => ipcRenderer.invoke('browser:set-find-open', open),

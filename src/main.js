@@ -126,6 +126,7 @@ function loadSettings() {
     history: Array.isArray(stored.history) ? stored.history.slice(0, 2000) : []
   };
   loadWorkspaces();
+  loadFavorites();
   return loaded;
 }
 
@@ -300,6 +301,65 @@ function addHistory(url, title, opts = {}) {
   // fan-out (zoom re-apply + relayout + sendState per window) is wasted work
   // on every navigation. Only the internal pages that render history need it.
   notifyHistorySoon();
+}
+
+// Favorites
+const FAVORITES_FILE = 'favorites.json';
+let favorites = [];
+
+function loadFavorites() {
+  const stored = readJson(FAVORITES_FILE, []);
+  favorites = Array.isArray(stored)
+    ? stored
+      .filter((item) => item && typeof item.url === 'string' && /^https?:\/\//i.test(item.url))
+      .map((item) => ({
+        id: String(item.id || item.url),
+        url: item.url,
+        title: typeof item.title === 'string' && item.title ? item.title : item.url,
+        favicon: typeof item.favicon === 'string' ? item.favicon : '',
+        addedAt: Number(item.addedAt) || Date.now()
+      }))
+    : [];
+  return favorites;
+}
+
+function saveFavorites() { writeJson(FAVORITES_FILE, favorites); }
+
+function notifyFavorites() {
+  for (const browser of browsers) {
+    browser.sendState();
+    for (const tab of browser.tabs) {
+      if (tab.kind === 'favorites' && !tab.view.webContents.isDestroyed()) {
+        tab.view.webContents.send('favorites:changed', favorites);
+      }
+    }
+  }
+}
+
+function isFavorite(url) { return favorites.some((item) => item.url === url); }
+
+function addFavorite({ url, title, favicon }) {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url) || url.length > 2048) return false;
+  if (isFavorite(url)) return true;
+  favorites.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    url,
+    title: (typeof title === 'string' && title.trim()) ? title.slice(0, 300) : url,
+    favicon: typeof favicon === 'string' ? favicon.slice(0, 4096) : '',
+    addedAt: Date.now()
+  });
+  saveFavorites();
+  notifyFavorites();
+  return true;
+}
+
+function removeFavorite(url) {
+  const before = favorites.length;
+  favorites = favorites.filter((item) => item.url !== url && item.id !== url);
+  if (favorites.length === before) return false;
+  saveFavorites();
+  notifyFavorites();
+  return true;
 }
 
 let historyNotifyTimer;
@@ -1441,6 +1501,8 @@ class Browser {
       activeId: this.activeId,
       activeUrl: active?.url || '',
       activeLoading: Boolean(active?.loading),
+      activeFavorited: Boolean(active && active.kind === 'web' && isFavorite(active.url)),
+      canFavorite: Boolean(active && active.kind === 'web' && /^https?:\/\//i.test(active.url || '')),
       canGoBack: Boolean(history?.canGoBack()),
       canGoForward: Boolean(history?.canGoForward()),
       expanded: this.expanded,
@@ -1680,7 +1742,12 @@ class Browser {
       this.createSpecialTab('settings');
       return;
     }
-    if (ctrl && (key === 'd' || key === 'b')) {
+    if (ctrl && key === 'd' && !input.shift) {
+      event.preventDefault();
+      this.toggleFavorite();
+      return;
+    }
+    if (ctrl && (key === 'b' || (input.shift && key === 'd'))) {
       event.preventDefault();
       this.createSpecialTab('favorites');
       return;
@@ -1935,6 +2002,13 @@ class Browser {
     this.saveSessionSoon();
   }
   saveSessionSoon() { if (!this.privateMode) { clearTimeout(this.sessionTimer); this.sessionTimer = setTimeout(() => this.saveSession(), 300); } }
+  toggleFavorite() {
+    const tab = this.active();
+    if (!tab || tab.kind !== 'web' || !/^https?:\/\//i.test(tab.url || '')) return false;
+    const added = isFavorite(tab.url) ? !removeFavorite(tab.url) : addFavorite({ url: tab.url, title: tab.title, favicon: tab.favicon });
+    this.sendState();
+    return added;
+  }
   saveSession() {
     clearTimeout(this.sessionTimer);
     if (this.privateMode) return;
@@ -2311,6 +2385,20 @@ ipcMain.handle('browser:attach-tab', (event, { tabId, newIndex } = {}) => chrome
 ipcMain.handle('browser:tear-off-tab', (event, { tabId, screenX, screenY } = {}) => chromeOwners.get(event.sender.id)?.tearOffTab(tabId, screenX, screenY));
 
 // Downloads IPC
+// Favorites
+ipcMain.handle('favorites:list', () => favorites);
+ipcMain.handle('favorites:toggle-active', (event) => chromeOwners.get(event.sender.id)?.toggleFavorite() ?? false);
+ipcMain.handle('favorites:add', (_event, entry) => addFavorite(entry || {}));
+ipcMain.handle('favorites:remove', (_event, url) => removeFavorite(url));
+ipcMain.handle('favorites:open', (event, { url, newTab } = {}) => {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return false;
+  const browser = pageOwners.get(event.sender.id) || chromeOwners.get(event.sender.id) || browsers.values().next().value;
+  if (!browser) return false;
+  if (newTab) browser.createWebTab(url, true);
+  else browser.navigate(browser.active(), url);
+  return true;
+});
+
 // Find in page
 ipcMain.handle('browser:find', (event, { text, options } = {}) => {
   const browser = chromeOwners.get(event.sender.id);

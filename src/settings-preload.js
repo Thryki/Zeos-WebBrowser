@@ -55,3 +55,14 @@ contextBridge.exposeInMainWorld('zeosExtensions', {
   }
 });
 
+contextBridge.exposeInMainWorld('zeosFavorites', {
+  list: () => ipcRenderer.invoke('favorites:list'),
+  add: (entry) => ipcRenderer.invoke('favorites:add', entry),
+  remove: (url) => ipcRenderer.invoke('favorites:remove', url),
+  open: (url, newTab) => ipcRenderer.invoke('favorites:open', { url, newTab: Boolean(newTab) }),
+  onChanged: (handler) => {
+    const listener = (_event, items) => handler(items);
+    ipcRenderer.on('favorites:changed', listener);
+    return () => ipcRenderer.removeListener('favorites:changed', listener);
+  }
+});

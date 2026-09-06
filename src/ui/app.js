@@ -27,6 +27,7 @@ const maximizeButton = document.querySelector('#maximize');
 const closeWindowButton = document.querySelector('#close-window');
 const omniboxRow = document.querySelector('#omnibox-row');
 const extensionsToolbar = document.querySelector('#extensions-toolbar');
+const favoriteButton = document.querySelector('#favorite-btn');
 
 // Stats elements (Zeos Browser memory and CPU)
 const statCpu = document.querySelector('#stat-cpu');
@@ -535,6 +536,11 @@ function applyState(next) {
 
   if (document.activeElement !== omnibox) {
     omnibox.value = state.activeUrl || '';
+  if (favoriteButton) {
+    favoriteButton.classList.toggle('favorited', Boolean(state.activeFavorited));
+    favoriteButton.disabled = !state.canFavorite;
+    favoriteButton.title = state.activeFavorited ? 'Remover dos favoritos (Ctrl+D)' : 'Adicionar aos favoritos (Ctrl+D)';
+  }
   }
 
   if (backButton) backButton.disabled = !state.canGoBack;
@@ -955,3 +961,8 @@ if (findBar) {
 }
 
 window.zeos.onOpenFind(() => openFind());
+
+// Favorites
+if (favoriteButton) {
+  favoriteButton.addEventListener('click', () => window.zeos.toggleFavorite());
+}

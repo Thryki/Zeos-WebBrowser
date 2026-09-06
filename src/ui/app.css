@@ -780,3 +780,10 @@ body.platform-darwin .window-controls {
   opacity: 0.6;
   font-variant-numeric: tabular-nums;
 }
+
+#favorite-btn.favorited .star-icon path {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+#favorite-btn:disabled { opacity: 0.25; }
