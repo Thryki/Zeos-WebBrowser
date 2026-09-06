@@ -1,5 +1,11 @@
 'use strict';
 
+// Static markup declares icons with data-icon; fill them from the Lucide set.
+for (const holder of document.querySelectorAll('[data-icon]')) {
+  holder.innerHTML = iconMarkup(holder.dataset.icon, 14);
+}
+
+
 const themesGrid = document.querySelector('#themes-grid');
 const btnBack = document.querySelector('#btn-back');
 const btnForward = document.querySelector('#btn-forward');
@@ -286,8 +292,16 @@ function updateHistorySelection() {
   label.textContent = selectedUrls.size === 1
     ? '1 item selecionado'
     : `${selectedUrls.size} itens selecionados`;
-  for (const row of document.querySelectorAll('.history-item')) {
+  const rows = [...document.querySelectorAll('.history-item')];
+  for (const row of rows) {
     row.classList.toggle('selected', selectedUrls.has(row.dataset.url));
+  }
+  // The master tick mirrors the list: all, none, or partially taken.
+  const master = document.querySelector('#history-select-all');
+  if (master) {
+    const taken = rows.filter((row) => selectedUrls.has(row.dataset.url)).length;
+    master.checked = rows.length > 0 && taken === rows.length;
+    master.indeterminate = taken > 0 && taken < rows.length;
   }
 }
 
@@ -321,6 +335,19 @@ function renderHistory(history) {
       const heading = document.createElement('li');
       heading.className = 'history-day';
       heading.textContent = historyDayLabel(when);
+      heading.title = 'Selecionar tudo deste dia';
+      // Clicking a day header takes or releases that whole day.
+      heading.addEventListener('click', () => {
+        const sameDay = filtered.filter((entry) => (
+          historyDayKey(Number(entry.lastVisitedAt || entry.visitedAt) || 0) === key
+        ));
+        const allTaken = sameDay.every((entry) => selectedUrls.has(entry.url));
+        for (const entry of sameDay) {
+          if (allTaken) selectedUrls.delete(entry.url);
+          else selectedUrls.add(entry.url);
+        }
+        renderHistory(history);
+      });
       historyList.appendChild(heading);
     }
 
@@ -394,6 +421,19 @@ function renderHistory(history) {
 }
 
 function wireHistorySelectionBar() {
+  const selectAll = document.querySelector('#history-select-all');
+  selectAll?.addEventListener('change', () => {
+    const rows = document.querySelectorAll('.history-item');
+    for (const row of rows) {
+      if (selectAll.checked) selectedUrls.add(row.dataset.url);
+      else selectedUrls.delete(row.dataset.url);
+    }
+    for (const tick of document.querySelectorAll('.history-tick')) tick.checked = selectAll.checked;
+    updateHistorySelection();
+  });
+
+  document.querySelector('#history-clear-btn')?.addEventListener('click', openHistoryClearModal);
+
   const clear = document.querySelector('#history-selection-clear');
   const openAll = document.querySelector('#history-selection-open');
   const dropAll = document.querySelector('#history-selection-delete');

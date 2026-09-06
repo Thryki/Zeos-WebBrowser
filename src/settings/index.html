@@ -200,7 +200,16 @@
 
     <!-- HISTÓRICO -->
     <section class="panel" data-panel="historico">
-      <h1>Histórico</h1>
+      <div class="panel-head">
+        <h1>Histórico</h1>
+        <div class="panel-actions">
+          <label class="select-all">
+            <input id="history-select-all" type="checkbox" />
+            <span>Selecionar tudo</span>
+          </label>
+          <button id="history-clear-btn" type="button" class="action-btn danger-outline">Limpar dados...</button>
+        </div>
+      </div>
       <div class="history-controls">
         <input id="history-search" type="text" placeholder="Pesquisar por título ou endereço" />
         <div class="history-filter-chips">
@@ -228,7 +237,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
         <h2 id="modal-title">Limpar dados de navegação</h2>
-        <button id="modal-close-btn" class="modal-close-icon" aria-label="Fechar">✕</button>
+        <button id="modal-close-btn" class="modal-close-icon" aria-label="Fechar"><span data-icon="x"></span></button>
       </div>
 
       <div class="modal-body">
@@ -243,7 +252,7 @@
         </div>
 
         <div id="clear-confirm-box" class="confirm-warning-box" style="display: none;">
-          ⚠️ <strong>Confirmar exclusão:</strong> Tem certeza que deseja apagar o histórico selecionado? Esta ação não pode ser desfeita.
+          <span data-icon="triangle-alert"></span> <strong>Confirmar exclusão:</strong> Tem certeza que deseja apagar o histórico selecionado? Esta ação não pode ser desfeita.
         </div>
       </div>
 
