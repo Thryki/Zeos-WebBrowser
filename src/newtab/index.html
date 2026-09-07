@@ -41,10 +41,16 @@
   .brand { width: 100%; max-width: 1180px; display: flex; flex-direction: column; align-items: center; }
   /* With the 3D effect off, the page sits on the hand-made scene. It is a
      PNG rasterised once from src/assets/zeos-bg.svg: the vector is 4.8 MB
-     with 2048 paths and cannot be decoded on every new tab. Fixed, so the
-     scene stays put while the page scrolls. */
-  body.zeos-still {
-    background: var(--bg) url("../assets/zeos-bg.png") center center / cover no-repeat fixed;
+     with 2048 paths and cannot be decoded on every new tab. The scene is
+     a hero one screen tall that scrolls with the page: the wordmark lives
+     in the brand band and the content below it never slides over it. Its
+     base fades into the page colour, so nowhere reads as the scene ending. */
+  body.zeos-still::before {
+    content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100vh;
+    z-index: 0; pointer-events: none;
+    background: var(--bg) url("../assets/zeos-bg.png") center center / cover no-repeat;
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 70%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 70%, transparent 100%);
   }
   /* With the 3D backdrop on, the brand slot is empty but still reserves the
      band the rotating wordmark occupies, so the greeting starts below it. */
