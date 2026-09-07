@@ -1505,13 +1505,21 @@ function setupSession(browserSession) {
   });
 }
 
-// Every site gets the same thin, quiet scrollbar as the browser's own pages.
-// The standard properties are used on purpose: Chromium lets them override a
-// page's ::-webkit-scrollbar styling, and both inherit, so one rule on the
-// root reaches every scroller in the document. User origin plus !important
-// so a site's own !important cannot undo it. Neutral grey, because the page
-// behind it can be any colour.
-const PAGE_SCROLLBAR_CSS = 'html { scrollbar-width: thin !important; scrollbar-color: rgba(128, 128, 128, 0.45) transparent !important; }';
+// Every site gets the same thin, quiet scrollbar as the browser's own pages:
+// the same ::-webkit-scrollbar rules as src/assets/scrollbar.css, in a
+// neutral grey because the page behind can be any colour. They go in as a
+// user-origin sheet WITHOUT !important on purpose: a site that styles or
+// hides its own scrollbars (carousels, chat lists) keeps that, and only the
+// stock Chromium bar is replaced. The standard scrollbar-width/-color
+// properties are avoided: scrollbar-color inherits and a non-auto value
+// silently discards a page's own ::-webkit-scrollbar styling, un-hiding
+// bars and widening thin ones.
+const PAGE_SCROLLBAR_CSS = [
+  '::-webkit-scrollbar { width: 11px; height: 11px; }',
+  '::-webkit-scrollbar-track { background: transparent; }',
+  '::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.45); border: 3px solid transparent; border-radius: 8px; background-clip: content-box; }',
+  '::-webkit-scrollbar-corner { background: transparent; }'
+].join(' ');
 class Browser {
   constructor(privateMode = false, restoreSession = false, initialUrl = null, initialBounds = null, workspaceId = null) {
     this.privateMode = privateMode;
