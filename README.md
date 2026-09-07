@@ -111,8 +111,14 @@ clique, ativar/desativar persistente, recarregamento individual ou global e
 empacotamento em `.zip`.
 
 O Zeos preenche as APIs que o Electron não implementa (`chrome.contextMenus`,
-`chrome.commands`, entre outras) com um polyfill injetado numa cópia da
-extensão — **a pasta original nunca é tocada**.
+`chrome.commands`, `chrome.permissions`, `chrome.webNavigation`,
+`chrome.storage.sync`, entre outras) com um polyfill injetado numa cópia da
+extensão — **a pasta original nunca é tocada**. Isso não é cosmético: uma
+extensão que lê uma API ausente derruba o próprio service worker na
+primeira linha e some inteira, popup incluído. Onde o Electron não tem o
+recurso, o polyfill responde vazio e nunca dispara eventos — a extensão
+perde aquela função em vez de perder tudo. `chrome.storage.sync` é um
+apelido para o armazenamento local, já que o Zeos não sincroniza nada.
 
 Dá para instalar **direto da Chrome Web Store**: abra a loja pelo gerenciador,
 clique em **Usar no Zeos** e confirme as permissões que a extensão pede. O

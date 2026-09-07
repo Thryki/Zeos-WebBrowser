@@ -595,6 +595,66 @@ const ZEOS_EXTENSION_POLYFILL = `
     };
   }
 
+  // chrome.extension
+  // Electron provides the object but not these two, and an extension that
+  // calls one unguarded dies mid-startup. Zeos loads every extension with
+  // allowFileAccess, so the first answer is a truthful yes; extensions are
+  // never loaded into a private window, so the second is a truthful no.
+  try {
+    if (!self.chrome.extension) self.chrome.extension = {};
+    if (typeof self.chrome.extension.isAllowedFileSchemeAccess !== 'function') {
+      self.chrome.extension.isAllowedFileSchemeAccess = (cb) => {
+        if (typeof cb === 'function') { cb(true); return undefined; }
+        return Promise.resolve(true);
+      };
+    }
+    if (typeof self.chrome.extension.isAllowedIncognitoAccess !== 'function') {
+      self.chrome.extension.isAllowedIncognitoAccess = (cb) => {
+        if (typeof cb === 'function') { cb(false); return undefined; }
+        return Promise.resolve(false);
+      };
+    }
+  } catch (e) {}
+
+  // chrome.permissions
+  // Not implemented by Electron, and its absence is fatal: an extension
+  // that reads chrome.permissions.onRemoved throws on the very first line
+  // of its service worker, so it never registers a message listener and
+  // every popup that asks it for state hangs. What the manifest declares is
+  // what Electron actually grants, so that list is the honest answer here;
+  // optional permissions cannot be granted at runtime, so request() only
+  // confirms what is already there instead of pretending to prompt.
+  if (!self.chrome.permissions) {
+    const granted = () => {
+      let manifest = {};
+      try { manifest = self.chrome.runtime.getManifest() || {}; } catch (e) {}
+      const strings = (list) => (Array.isArray(list) ? list : []).filter((entry) => typeof entry === 'string');
+      return {
+        permissions: strings(manifest.permissions),
+        origins: strings(manifest.host_permissions)
+      };
+    };
+    const covers = (query) => {
+      const have = granted();
+      const wanted = query || {};
+      const perms = Array.isArray(wanted.permissions) ? wanted.permissions : [];
+      const origins = Array.isArray(wanted.origins) ? wanted.origins : [];
+      return perms.every((entry) => have.permissions.includes(entry))
+        && origins.every((entry) => have.origins.includes(entry));
+    };
+    const answer = (value, cb) => {
+      if (typeof cb === 'function') { cb(value); return undefined; }
+      return Promise.resolve(value);
+    };
+    self.chrome.permissions = {
+      onAdded: createEvent(),
+      onRemoved: createEvent(),
+      getAll(cb) { return answer(granted(), cb); },
+      contains(query, cb) { return answer(covers(query), cb); },
+      request(query, cb) { return answer(covers(query), cb); },
+      remove(query, cb) { return answer(false, cb); }
+    };
+  }
   // chrome.offscreen
   if (!self.chrome.offscreen) {
     self.chrome.offscreen = {
@@ -613,8 +673,8 @@ const ZEOS_EXTENSION_POLYFILL = `
   }
 
   // chrome.storage
-  if (!self.chrome.storage || !self.chrome.storage.local) {
-    function createStorageArea() {
+  function createStorageArea() {
+    {
       const memoryStore = new Map();
       return {
         get(keys, cb) {
@@ -665,14 +725,32 @@ const ZEOS_EXTENSION_POLYFILL = `
         setAccessLevel(opts, cb) { if (cb) cb(); return Promise.resolve(); }
       };
     }
-    self.chrome.storage = {
-      local: createStorageArea(),
-      sync: createStorageArea(),
-      session: createStorageArea(),
-      managed: createStorageArea(),
-      onChanged: createEvent()
-    };
   }
+
+  // Of the four storage areas Electron only implements local and session.
+  // sync and managed are present as objects, which is worse than missing:
+  // every call returns lastError '"sync" is not available in this instance
+  // of Chrome', and extensions read that as a hard failure instead of an
+  // empty result — Dark Reader stops there and its popup never leaves
+  // "Loading, please wait". Zeos has no sync backend, so sync is aliased to
+  // local and those settings persist instead of vanishing; managed answers
+  // empty, which is exactly what a browser with no enterprise policy has.
+  // The object is replaced as a whole, keeping Electron's own local,
+  // session and onChanged.
+  try {
+    const base = self.chrome.storage;
+    const area = (name) => {
+      try { return base ? base[name] : undefined; } catch (e) { return undefined; }
+    };
+    const local = area('local') || createStorageArea();
+    self.chrome.storage = {
+      local,
+      sync: local,
+      session: area('session') || createStorageArea(),
+      managed: createStorageArea(),
+      onChanged: area('onChanged') || createEvent()
+    };
+  } catch (e) {}
 
   // chrome.windows
   if (!self.chrome.windows) {
@@ -697,6 +775,69 @@ const ZEOS_EXTENSION_POLYFILL = `
     };
   }
 
+  // Namespaces Electron does not implement at all.
+  // Their absence is rarely graceful: an extension reads
+  // chrome.webNavigation.onBeforeNavigate at the top of its service worker,
+  // the read throws, the worker dies before registering a single listener,
+  // and the whole extension goes dark - popup included. Each one below gets
+  // events that never fire and queries that answer empty, which is how a
+  // browser without that capability looks from the outside: the extension
+  // loses the feature instead of losing everything. What Electron does
+  // provide (alarms, declarativeNetRequest, i18n, management, runtime,
+  // scripting, storage.local, tabs, webRequest, idle) is left untouched.
+  function stubApi(events, methods) {
+    const api = {};
+    for (const name of events) api[name] = createEvent();
+    for (const [name, result] of Object.entries(methods)) {
+      api[name] = (...args) => {
+        const cb = args.find((arg) => typeof arg === 'function');
+        const value = typeof result === 'function' ? result() : result;
+        if (cb) { cb(value); return undefined; }
+        return Promise.resolve(value);
+      };
+    }
+    return api;
+  }
+
+  const MISSING_APIS = {
+    webNavigation: [
+      ['onBeforeNavigate', 'onCommitted', 'onDOMContentLoaded', 'onCompleted', 'onErrorOccurred',
+        'onCreatedNavigationTarget', 'onReferenceFragmentUpdated', 'onTabReplaced', 'onHistoryStateUpdated'],
+      { getFrame: null, getAllFrames: () => [] }
+    ],
+    cookies: [['onChanged'], { get: null, getAll: () => [], set: null, remove: null, getAllCookieStores: () => [] }],
+    notifications: [
+      ['onClicked', 'onButtonClicked', 'onClosed', 'onPermissionLevelChanged', 'onShowSettings'],
+      { create: '', update: false, clear: false, getAll: () => ({}), getPermissionLevel: 'denied' }
+    ],
+    downloads: [
+      ['onCreated', 'onChanged', 'onErased', 'onDeterminingFilename'],
+      { download: -1, search: () => [], cancel: null, pause: null, resume: null, erase: () => [], show: null, showDefaultFolder: null }
+    ],
+    history: [['onVisited', 'onVisitRemoved'], { search: () => [], getVisits: () => [], addUrl: null, deleteUrl: null, deleteRange: null }],
+    bookmarks: [
+      ['onCreated', 'onRemoved', 'onChanged', 'onMoved', 'onChildrenReordered'],
+      { get: () => [], getChildren: () => [], getTree: () => [], search: () => [], create: null, remove: null, update: null }
+    ],
+    topSites: [[], { get: () => [] }],
+    sessions: [['onChanged'], { getRecentlyClosed: () => [], getDevices: () => [], restore: null }],
+    browsingData: [[], { remove: null, removeCache: null, removeCookies: null, settings: () => ({ options: {}, dataToRemove: {}, dataRemovalPermitted: {} }) }],
+    privacy: [[], {}],
+    fontSettings: [
+      ['onFontChanged', 'onDefaultFontSizeChanged', 'onMinimumFontSizeChanged'],
+      { getFont: () => ({ fontId: '', levelOfControl: 'not_controllable' }), getFontList: () => [], setFont: null,
+        getDefaultFontSize: () => ({ value: 16, levelOfControl: 'not_controllable' }), setDefaultFontSize: null,
+        getMinimumFontSize: () => ({ value: 0, levelOfControl: 'not_controllable' }), setMinimumFontSize: null }
+    ],
+    tabGroups: [['onCreated', 'onUpdated', 'onMoved', 'onRemoved'], { get: null, query: () => [], update: null, move: null }],
+    sidePanel: [[], { open: null, setOptions: null, getOptions: () => ({}), setPanelBehavior: null }],
+    power: [[], { requestKeepAwake: null, releaseKeepAwake: null }]
+  };
+  for (const [name, [events, methods]] of Object.entries(MISSING_APIS)) {
+    if (!self.chrome[name]) {
+      try { self.chrome[name] = stubApi(events, methods); } catch (e) {}
+    }
+  }
   // Intercept runtime messages for Zeos triggers
   if (self.chrome.runtime && self.chrome.runtime.onMessage) {
     self.chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

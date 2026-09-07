@@ -29,6 +29,13 @@ NÃO implementar aqui agentes, chat, MCP operacional ou orquestração — ver R
 Workspaces: `Tab.workspaceId` é a fonte de verdade; switch não move tabs;
 excluir workspace não apaga tabs; restauração não duplica nem perde tabs.
 
+Extensões: o polyfill (`ZEOS_EXTENSION_POLYFILL`) é o que mantém extensões
+reais vivas — ler uma API que o Electron não tem mata o service worker antes
+de ele registrar qualquer listener, e a extensão inteira some. Ao adicionar
+stub, responda vazio e nunca dispare eventos; nunca finja sucesso de escrita.
+Cuidado com `chrome.storage`: `sync` e `managed` existem no Electron mas toda
+chamada falha com `lastError`, por isso o objeto inteiro é substituído.
+
 Extensões: `sourcePath` (pasta do usuário) NUNCA pode ser apagado; só o
 runner em tmpdir pertence ao app; falha de preparação nunca transforma
 `sourcePath` em alvo de deleção. Exceção única: pastas que o próprio Zeos
