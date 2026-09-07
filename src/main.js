@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, Menu, MenuItem, ipcMain, session, shell, dialog, net } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, MenuItem, ipcMain, session, shell, dialog, net, webContents } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -8,6 +8,15 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { HOME_URL, SEARCH_PROVIDERS, toNavigationTarget } = require('./navigation');
 const { THEMES, getTheme } = require('./themes');
+const { installChromeWebStore } = require('electron-chrome-web-store');
+
+// The store greets the user with the browser's name (its button reads "Usar
+// no <nome>") and Electron takes that name from package.json, where it is
+// the npm name. Pin the profile and session folders first, so renaming the
+// app moves nothing on disk for anyone who already has a profile.
+app.setPath('userData', app.getPath('userData'));
+app.setPath('sessionData', app.getPath('sessionData'));
+app.setName('Zeos');
 
 const WORKSPACES_FILE = 'workspaces.json';
 
@@ -811,6 +820,169 @@ async function loadPreparedExtension(sourcePath) {
   return ext;
 }
 
+// Chrome Web Store
+// The store's install button drives a private Chrome API, so a Chromium that
+// is not Chrome gets a "not supported" page. electron-chrome-web-store
+// supplies that API on chromewebstore.google.com only (its preload checks
+// the origin before doing anything), downloads the signed .crx from
+// Google's own servers, checks that the package's public key hashes to the
+// extension id and unpacks it under userData/Extensions/<id>/<version>_0.
+// From there Zeos treats the folder like any other extension folder: the
+// runner copy with the polyfill, the context menus, the Extensoes page.
+// The library's own loading is switched off, and the one load it performs
+// at install time is redirected so that it IS the runner load (see
+// redirectStoreLoads). Updates are off for now: its updater reads the
+// loaded path, which for Zeos is the runner copy, not the store folder.
+//
+// Two things the library gets wrong are corrected here rather than
+// trusted: its origin checks are unanchored startsWith() tests, so no frame
+// whose URL merely starts like the store may exist in this session; and its
+// uninstall handler asks nothing and turns the id it is given into a path,
+// so that channel is answered by Zeos instead.
+function storeExtensionsDir() { return path.join(app.getPath('userData'), 'Extensions'); }
+const STORE_ORIGIN = 'https://chromewebstore.google.com';
+const EXTENSION_ID = /^[a-p]{32}$/;
+
+// A store folder is Extensions/<id>/<version>_0, so its real id is the
+// parent folder's name. Used while the extension is not loaded, when there
+// is no Extension object to ask.
+function storeExtensionId(extPath) {
+  if (!isStoreExtensionPath(extPath)) return '';
+  const id = path.basename(path.dirname(extPath));
+  return EXTENSION_ID.test(id) ? id : '';
+}
+
+// True only for a folder strictly inside userData/Extensions. Fails closed:
+// any resolution error means "not ours", so nothing gets deleted by mistake.
+function isStoreExtensionPath(candidate) {
+  try {
+    const rel = path.relative(fs.realpathSync(storeExtensionsDir()), fs.realpathSync(candidate));
+    return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
+  } catch {
+    return false;
+  }
+}
+
+// The same confirmation Chrome shows: name, icon and the permissions the
+// manifest asks for. Before this dialog the library has fetched only the
+// icon the store page points to; the .crx is downloaded after a yes.
+async function confirmStoreInstall(details) {
+  const manifest = details.manifest || {};
+  const permissions = [...(manifest.permissions || []), ...(manifest.host_permissions || [])]
+    .filter((entry) => typeof entry === 'string');
+  const name = details.localizedName || manifest.name || details.id;
+  const options = {
+    type: 'question',
+    buttons: ['Instalar', 'Cancelar'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    title: 'Instalar extensão',
+    message: `Instalar "${name}"?`,
+    detail: permissions.length
+      ? 'Ela pede estas permissões:\n' + permissions.map((entry) => '\u2022 ' + entry).join('\n')
+      : 'Ela não pede permissões especiais.'
+  };
+  if (details.icon && !details.icon.isEmpty()) options.icon = details.icon;
+  const win = windowOfFrame(details.frame) || (details.browserWindow && !details.browserWindow.isDestroyed() ? details.browserWindow : null);
+  const { response } = await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
+  return { action: response === 0 ? 'allow' : 'deny' };
+}
+
+// The window that owns the tab a store frame lives in. The library offers
+// BrowserWindow.fromWebContents(sender), which is null for a tab view.
+function windowOfFrame(frame) {
+  try {
+    if (!frame || frame.isDestroyed()) return null;
+    const contents = webContents.fromFrame(frame);
+    const owner = contents ? pageOwners.get(contents.id) : null;
+    return owner && !owner.window.isDestroyed() ? owner.window : null;
+  } catch {
+    return null;
+  }
+}
+
+// A store folder is loaded through the runner like any other folder and
+// recorded in settings; an update lands in a sibling versioned folder, so
+// the old one leaves the list at the same time.
+async function adoptStoreExtension(sourcePath) {
+  const ext = await loadPreparedExtension(sourcePath);
+  const idDir = path.dirname(sourcePath);
+  settings.extensions = settings.extensions.filter((entry) => path.dirname(entry) !== idDir);
+  settings.extensions.push(sourcePath);
+  settings.disabledExtensions = settings.disabledExtensions.filter((entry) => path.dirname(entry) !== idDir);
+  saveSettingsSoon();
+  notifySettings();
+  return ext;
+}
+
+// The library installs with session.extensions.loadExtension(folder). For
+// a store folder that call becomes adoptStoreExtension, so the load the
+// library performs is the runner load: the id is never absent for the
+// store's follow-up checks and nothing is removed and reloaded. Zeos's own
+// loads use runner paths in the temp dir and pass straight through.
+function redirectStoreLoads(browserSession) {
+  const api = browserSession.extensions || browserSession;
+  const original = api.loadExtension.bind(api);
+  api.loadExtension = (extPath, options) => (isStoreExtensionPath(extPath) ? adoptStoreExtension(extPath) : original(extPath, options));
+}
+
+function isStoreOrigin(url) {
+  try { return new URL(url).origin === STORE_ORIGIN; } catch { return false; }
+}
+
+// Removal asked from the store page: exact origin, a real id, the same
+// confirmation the install has, and then removeExtension with its guards.
+async function uninstallFromStore(event, id) {
+  if (!event.senderFrame || event.senderFrame.origin !== STORE_ORIGIN) return 'unknown_error';
+  if (typeof id !== 'string' || !EXTENSION_ID.test(id)) return 'unknown_error';
+  const ext = getInstalledExtensions().find((entry) => entry.id === id);
+  if (!ext || isBuiltinExtensionPath(ext.path)) return 'unknown_error';
+  const options = {
+    type: 'question',
+    buttons: ['Remover', 'Cancelar'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    title: 'Remover extensão',
+    message: `Remover "${ext.name}" do Zeos?`
+  };
+  const win = windowOfFrame(event.senderFrame);
+  const { response } = await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
+  if (response !== 0) return 'user_cancelled';
+  if (!removeExtension(id)) return 'unknown_error';
+  queueMicrotask(() => {
+    if (!event.sender.isDestroyed()) event.sender.send('chrome.management.onUninstalled', id);
+  });
+  return 'success';
+}
+
+async function setupChromeWebStore() {
+  const browserSession = session.defaultSession;
+  // No frame whose URL starts like the store but is not the store gets to
+  // load in this session; that is what the library's startsWith() checks
+  // would otherwise let through.
+  browserSession.webRequest.onBeforeRequest({ urls: ['https://*/*'], types: ['mainFrame', 'subFrame'] }, (details, callback) => {
+    callback({ cancel: details.url.startsWith(STORE_ORIGIN) && !isStoreOrigin(details.url) });
+  });
+  redirectStoreLoads(browserSession);
+  try {
+    await installChromeWebStore({
+      session: browserSession,
+      extensionsPath: storeExtensionsDir(),
+      loadExtensions: false,
+      autoUpdate: false,
+      minimumManifestVersion: 2,
+      beforeInstall: confirmStoreInstall
+    });
+  } catch (error) {
+    console.error('Chrome Web Store indisponível:', error);
+    return;
+  }
+  ipcMain.removeHandler('chrome.management.uninstall');
+  ipcMain.handle('chrome.management.uninstall', uninstallFromStore);
+}
+
 // Chrome Extension management
 // Extensions shipped with the browser. They install themselves on first run,
 // survive updates and cannot be removed — only disabled.
@@ -941,7 +1113,7 @@ function getExtensionDetails(ext, isExplicitlyEnabled = null) {
   const backgroundType = manifest.background?.service_worker ? 'service_worker' : (manifest.background?.page || manifest.background?.scripts ? 'page' : 'none');
 
   return {
-    id: ext.id || (realPath ? path.basename(realPath).toLowerCase().replace(/[^a-z0-9]/g, '') : 'ext'),
+    id: ext.id || (realPath ? (storeExtensionId(realPath) || path.basename(realPath).toLowerCase().replace(/[^a-z0-9]/g, '')) : 'ext'),
     name: manifest.name || ext.name || 'Extensão',
     version: manifest.version || ext.version || '1.0',
     description: manifest.description || ext.description || '',
@@ -1013,7 +1185,7 @@ function getInstalledExtensions() {
         try {
           const manifest = JSON.parse(fs.readFileSync(path.join(extPath, 'manifest.json'), 'utf8'));
           result.push(getExtensionDetails({
-            id: path.basename(extPath).toLowerCase().replace(/[^a-z0-9]/g, ''),
+            id: storeExtensionId(extPath) || path.basename(extPath).toLowerCase().replace(/[^a-z0-9]/g, ''),
             name: manifest.name,
             version: manifest.version,
             description: manifest.description,
@@ -1044,6 +1216,11 @@ function removeExtension(extensionId) {
         const mapped = extensionRunnerMap.get(ext.path);
         if (mapped?.runnerPath && isRemovableRunnerDir(mapped.runnerPath, ext.path)) {
           try { fs.rmSync(mapped.runnerPath, { recursive: true, force: true }); } catch (e) {}
+        }
+        // A store install lives in a folder Zeos itself created under
+        // userData/Extensions; unlike a user's folder, it goes with the extension.
+        if (isStoreExtensionPath(ext.path)) {
+          try { fs.rmSync(path.dirname(ext.path), { recursive: true, force: true }); } catch {}
         }
         extensionRunnerMap.delete(ext.path);
         extensionSourceMap.delete(extensionId);
@@ -3275,6 +3452,7 @@ app.whenReady().then(async () => {
     ]));
   }
   setupSession(session.defaultSession);
+  await setupChromeWebStore();
   await loadSavedExtensions();
   setupAutoUpdate();
 

@@ -31,7 +31,18 @@ excluir workspace não apaga tabs; restauração não duplica nem perde tabs.
 
 Extensões: `sourcePath` (pasta do usuário) NUNCA pode ser apagado; só o
 runner em tmpdir pertence ao app; falha de preparação nunca transforma
-`sourcePath` em alvo de deleção.
+`sourcePath` em alvo de deleção. Exceção única: pastas que o próprio Zeos
+criou em `userData/Extensions/<id>/<versão>_0` ao instalar da Chrome Web
+Store (`isStoreExtensionPath`, que falha fechado) — essas vão embora junto
+com a extensão. O `loadExtension` que a biblioteca chama é redirecionado
+(`redirectStoreLoads`) para `adoptStoreExtension`, que carrega pelo runner e
+registra a pasta em `settings.extensions`. Toda instalação passa por
+`confirmStoreInstall`; antes do diálogo a biblioteca busca só o ícone que a
+página da loja indica, e o `.crx` só é baixado de `clients2.google.com`
+depois do sim. A biblioteca checa origem com `startsWith` sem âncora: por
+isso nenhuma navegação a um host que só *começa* como a loja é permitida
+na sessão padrão, e a desinstalação pedida pela loja é respondida pelo
+Zeos (`uninstallFromStore`), nunca pelo handler dela.
 
 Ciclo de vida: toda `BrowserWindow` oculta criada como infraestrutura (pontes
 de extensão, inspetores) conta para `window-all-closed`. Se sobreviver à última

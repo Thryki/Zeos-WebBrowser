@@ -41,6 +41,10 @@ Veja [ROADMAP.md](ROADMAP.md) para a separação de camadas.
   páginas — nenhum domínio visitado é enviado a terceiros. O ícone de um atalho
   fixado é lido **uma vez**, do próprio site, no momento em que você o fixa, e
   guardado localmente: abrir uma aba nova não gera requisição nenhuma.
+- **Loja de extensões só quando você pede.** Ao clicar em instalar, o ícone da
+  extensão é buscado para o diálogo de confirmação; o pacote só é baixado de
+  `clients2.google.com`, uma única vez, depois que você confirma. Não há
+  verificação de atualizações em segundo plano.
 - **Sem fontes remotas.** Nenhuma página interna busca fontes ou ícones de CDN;
   tudo o que a interface desenha está no repositório.
 - **Corretor ortográfico desligado.** O Hunspell do Chromium baixaria
@@ -110,6 +114,14 @@ O Zeos preenche as APIs que o Electron não implementa (`chrome.contextMenus`,
 `chrome.commands`, entre outras) com um polyfill injetado numa cópia da
 extensão — **a pasta original nunca é tocada**.
 
+Dá para instalar **direto da Chrome Web Store**: abra a loja pelo gerenciador,
+clique em **Usar no Zeos** e confirme as permissões que a extensão pede. O
+pacote `.crx` é baixado por HTTPS dos servidores do Google, a chave pública
+embutida é conferida contra o ID da extensão (a integridade vem do TLS; a
+assinatura em si não é verificada) e a pasta desempacotada entra no mesmo
+caminho das descompactadas (polyfill, menus de contexto, gerenciador). Ainda
+não há atualização automática: para atualizar, remova e instale de novo.
+
 A **[Dislexfy](https://github.com/Thryki/dislexfy)** vem integrada: selecione um
 texto, clique com o botão direito e escolha **Ler com Dislexfy** para ouvi-lo.
 
@@ -124,7 +136,8 @@ texto, clique com o botão direito e escolha **Ler com Dislexfy** para ouvi-lo.
 - **Favoritos** com `Ctrl + D` e página dedicada com busca.
 - **Histórico** em `zeos://historico`, com busca, filtros por período, seleção
   múltipla e exclusão por dia.
-- **Zoom por site**, lembrado por domínio.
+- **Zoom por site**, lembrado por domínio, também com `Ctrl + roda do mouse`.
+- **Barra de rolagem** fina e discreta, a mesma em todos os sites.
 
 ---
 
@@ -151,7 +164,7 @@ texto, clique com o botão direito e escolha **Ler com Dislexfy** para ouvi-lo.
 | F5 / Ctrl + R | Recarregar |
 | Ctrl + F5 / Ctrl + Shift + R | Recarregar ignorando cache |
 | Alt + ← / Alt + → | Voltar / avançar |
-| Ctrl + + / Ctrl + - / Ctrl + 0 | Zoom da página (lembrado por site) |
+| Ctrl + + / Ctrl + - / Ctrl + 0 · Ctrl + roda do mouse | Zoom da página (lembrado por site) |
 | Ctrl + F / F3 | Localizar na página |
 | F12 / Ctrl + Shift + I | DevTools |
 
@@ -279,6 +292,7 @@ licenças:
 | Efeitos ASCII e dither | 3D ASCII & Dither Lab, de Razi | do autor |
 | Fonte bitmap | [IBM VGA 8x16](https://int10h.org/oldschool-pc-fonts/), do Ultimate Oldschool PC Font Pack de VileR | CC BY-SA 4.0 |
 | Extensão Dislexfy | [Thryki/dislexfy](https://github.com/Thryki/dislexfy), integrada em `src/bundled-extensions` | do autor |
+| Instalação pela Chrome Web Store | [electron-chrome-web-store](https://github.com/samuelmaddock/electron-browser-shell) 0.13.0, de Samuel Maddock | MIT |
 
 Textos de licença em [src/assets/fonts/](src/assets/fonts/) e
 [src/vendor/three/](src/vendor/three/).
