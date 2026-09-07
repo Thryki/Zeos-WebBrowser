@@ -27,15 +27,8 @@
   background-clip: content-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--accent, #22c55e) 55%, var(--border, #2a2a2a));
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-thumb:active {
-  background: var(--accent, #22c55e);
-  background-clip: content-box;
-}
+/* No hover or active state on purpose: the bar is furniture, not a control
+ * that lights up, so it keeps one colour whatever the pointer does. */
 
 ::-webkit-scrollbar-corner {
   background: transparent;

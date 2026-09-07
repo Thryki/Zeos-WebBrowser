@@ -1505,6 +1505,13 @@ function setupSession(browserSession) {
   });
 }
 
+// Every site gets the same thin, quiet scrollbar as the browser's own pages.
+// The standard properties are used on purpose: Chromium lets them override a
+// page's ::-webkit-scrollbar styling, and both inherit, so one rule on the
+// root reaches every scroller in the document. User origin plus !important
+// so a site's own !important cannot undo it. Neutral grey, because the page
+// behind it can be any colour.
+const PAGE_SCROLLBAR_CSS = 'html { scrollbar-width: thin !important; scrollbar-color: rgba(128, 128, 128, 0.45) transparent !important; }';
 class Browser {
   constructor(privateMode = false, restoreSession = false, initialUrl = null, initialBounds = null, workspaceId = null) {
     this.privateMode = privateMode;
@@ -1854,6 +1861,16 @@ class Browser {
     const contents = tab.view.webContents;
     const getOwner = () => pageOwners.get(contents.id) || this;
     contents.on('before-input-event', (event, input) => getOwner().keyboard(event, input));
+    // Ctrl + wheel and trackpad pinch zoom the page the same way Ctrl + and
+    // Ctrl - do, so the per-site level is shared and persisted once.
+    contents.on('zoom-changed', (_event, direction) => {
+      if (tab.kind !== 'web') return;
+      getOwner().zoomPage(direction === 'in' ? 1 : -1);
+    });
+    contents.on('dom-ready', () => {
+      if (tab.kind !== 'web' || contents.isDestroyed()) return;
+      contents.insertCSS(PAGE_SCROLLBAR_CSS, { cssOrigin: 'user' }).catch(() => {});
+    });
     contents.on('page-title-updated', (_event, title) => {
       tab.title = title || 'sem título';
       const owner = getOwner();
